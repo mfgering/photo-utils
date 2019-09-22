@@ -1,7 +1,24 @@
-import argparse, csv, sys
+from iptcinfo3 import IPTCInfo
+import exifread
+import argparse, os, sys
 
 def main():
-    pass
+	#cwd = os.getcwd()
+	fn = "images/don-elaine.jpg"
+	tags = get_tags(fn)
+	print("Done")
+#	fh = open("images/don-elaine.jpg", 'rb')
+#	tags = exifread.process_file(fh)
+#	for tag in tags.keys():
+#		print("Key: %s, value %s" % (tag, tags[tag]))
+
+def get_tags(fn):
+	iptc_info = IPTCInfo(fn)
+	try:
+		tags = [t.decode('utf-8') for t in iptc_info["keywords"]]
+	except Exception as exc:
+		tags = []
+	return tags
 
 def main_old():
 	parser = argparse.ArgumentParser()

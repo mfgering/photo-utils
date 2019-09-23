@@ -1,24 +1,47 @@
 from iptcinfo3 import IPTCInfo
 import exifread
 import argparse, os, sys
+import logging
+import settings
+
+class PhotoTags(object):
+	def __init__(self):
+		self.parser = argparse.ArgumentParser()
+		self.parser.add_argument('targ_arg', help="File or directory to check")
+		self.args = self.parser.parse_args()
+		if self.args.targ_arg is None:
+			self.parser.print_help()
+			sys.exit(1)
+		self.init_logging()
+		self.target = self.args.targ_arg
+	
+	def process_target(self, target):
+		pass
+
+	def init_logging(self):
+		self.logger = logging.getLogger("phototags")
+		self.logger.setLevel(logging.ERROR)
+		self.logger.addHandler(logging.StreamHandler(sys.stderr))
+		# Fix iptcinfo logging to avoid stupid warnings
+		iptcinfo_logger = logging.getLogger('iptcinfo')
+		iptcinfo_logger.setLevel(logging.ERROR)
+
+	def get_tags(self, fn):
+		iptc_info = IPTCInfo(fn)
+		try:
+			tags = [t.decode('utf-8') for t in iptc_info["keywords"]]
+		except Exception:
+			tags = []
+		self.logger.info("File '%s' tags: %s", fn, ", ".join(tags))
+		return tags
 
 def main():
-	#cwd = os.getcwd()
+	photo_tags = PhotoTags()
 	fn = "images/don-elaine.jpg"
-	tags = get_tags(fn)
-	print("Done")
-#	fh = open("images/don-elaine.jpg", 'rb')
-#	tags = exifread.process_file(fh)
-#	for tag in tags.keys():
-#		print("Key: %s, value %s" % (tag, tags[tag]))
+	photo_tags.logger.setLevel(logging.DEBUG)
+	tags = photo_tags.get_tags(fn)
 
-def get_tags(fn):
-	iptc_info = IPTCInfo(fn)
-	try:
-		tags = [t.decode('utf-8') for t in iptc_info["keywords"]]
-	except Exception as exc:
-		tags = []
-	return tags
+
 
 def main_old():
 	parser = argparse.ArgumentParser()

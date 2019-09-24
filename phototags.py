@@ -7,15 +7,23 @@ import logging
 class PhotoTags(object):
 	def __init__(self):
 		self.error_count = 0
+		self.total_files = 0
 		self.tags_allowed = []
 		self.tags_required = []
 		self.parser = argparse.ArgumentParser()
 		self.parser.add_argument('targ_arg', help="File or directory to check")
 		self.parser.add_argument('--config', default="phototags.ini", help="Configuration file")
-		self.parser.add_argument('--check_allowed', type=bool, default=True, help="Check that each tag is required or allowed")
-		self.parser.add_argument('--check_required', type=bool, default=True, help="Check that each image has required tags")
-		self.parser.add_argument('--frequency', type=bool, default=True, help="Tally tag frequencies")
-		self.parser.add_argument('--check_exif', type=bool, default=True, help="Check for old EXIF tags")
+		self.parser.add_argument('--file-tags', default=False, dest='print_file_tags', action='store_true', help="Print tags for each file")
+		self.parser.add_argument('--no-file-tags', dest='print_file_tags', action='store_false', help="Do not print tags for each file")
+		self.parser.add_argument('--check-allowed', default=False, dest='check_allowed', action='store_true', help="Check that each tag is required or allowed")
+		self.parser.add_argument('--no-check-allowed', dest='check_allowed', action='store_false', help="Do not check that each tag is required or allowed")
+		self.parser.add_argument('--check-required', default=False, dest='check_required', action='store_true', help="Check that each image has required tags")
+		self.parser.add_argument('--no-check-required', dest='check_required', action='store_false', help="No check that each image has required tags")
+		self.parser.add_argument('--frequency', default=False, action='store_true', help="Tally tag frequencies")
+		self.parser.add_argument('--no-frequency', action='store_false', help="Do not tally tag frequencies")
+		self.parser.add_argument('--check-exif', default=False, dest='check_exif', action='store_true', help="Check for old EXIF tags")
+		self.parser.add_argument('--no-check-exif', dest='check_exif', action='store_false', help="Do not check for old EXIF tags")
+		self.parser.add_argument('--max_files', type=int, default=-1, help="Max number of files (-1 for all of them)")
 		self.args = self.parser.parse_args()
 		if self.args.targ_arg is None:
 			self.parser.print_help()
@@ -54,20 +62,28 @@ class PhotoTags(object):
 		return result
 
 	def process_target(self, target=None):
+		self.total_files = 0
 		if target is None:
 			target = self.args.targ_arg
 		if os.path.isdir(target) or os.path.isfile(target):
-			for dir_name, subdir_list, file_list in os.walk(target):
+			for dir_name, _, file_list in os.walk(target):
 				for fn in file_list:
 					fn_full = os.path.join(dir_name, fn)
 					tags = self.tag_stats.get_tags(fn_full)
-					self.logger.info("File '%s' tags: %s", fn, ", ".join(tags))
+					if self.args.print_file_tags:
+						self.logger.info("File '%s' tags: %s", fn, ", ".join(tags))
 					if self.args.frequency:
 						self.tag_stats.add_tag_info(fn_full, tags)
 					if self.args.check_allowed:
 						self.tag_stats.check_allowed(fn_full, tags)
 					if self.args.check_required:
 						self.tag_stats.check_required(fn_full, tags)
+					self.total_files += 1
+					if self.total_files % 100 == 0:
+						self.logger.info("%s files processed...", str(self.total_files))
+					if self.total_files >= self.args.max_files:
+						self.logger.info("%s maximum files reached", str(self.args.max_files))
+						break
 			if self.args.frequency:
 				self.tag_stats.print_frequency(self.logger)
 			if self.args.check_allowed:
@@ -88,6 +104,9 @@ class PhotoTags(object):
 		# Fix iptcinfo logging to avoid stupid warnings
 		iptcinfo_logger = logging.getLogger('iptcinfo')
 		iptcinfo_logger.setLevel(logging.ERROR)
+		# Fix iptcinfo logging to avoid stupid warnings
+		exifread_logger = logging.getLogger('exifread')
+		exifread_logger.setLevel(logging.ERROR)
 
 	def get_error_count(self):
 		return self.tag_stats.get_error_count() + self.error_count
@@ -143,7 +162,7 @@ class Tag_Stats(object):
 			logger.info("\t%s: %s", tag, str(self.freq_dict[tag]))
 
 	def print_allowed(self, logger):
-		logger.info("Unallowed tags:")
+		logger.info("Tags not allowed:")
 		for fn, tag in self.bad_tags:
 			logger.info("\t%s: %s", fn, tag)
 
@@ -165,6 +184,7 @@ def main():
 	photo_tags = PhotoTags()
 	photo_tags.logger.setLevel(logging.DEBUG)
 	error_count = photo_tags.process_target()
+	photo_tags.logger.info("%s files processed", str(photo_tags.total_files))
 	if error_count > 0:
 		label = "errors"
 		if error_count == 1:

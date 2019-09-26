@@ -5,13 +5,22 @@ import argparse, os, sys
 import logging
 
 class PhotoTags(object):
-	def __init__(self):
+	def __init__(self, target_required=False):
 		self.error_count = 0
 		self.total_files = 0
 		self.tags_allowed = []
 		self.tags_required = []
+		self.parse_args(target_required)
+		self.init_logging()
+		self.init_config()
+		self.tag_stats = Tag_Stats(self.tags_allowed, self.tags_required)
+	
+	def parse_args(self, target_required=True):
 		self.parser = argparse.ArgumentParser()
-		self.parser.add_argument('targ_arg', help="File or directory to check")
+		if target_required:
+			self.parser.add_argument('targ_arg', help="File or directory to check")
+		else: 
+			self.parser.add_argument('--target', dest='targ_arg', help="File or directory to check")
 		self.parser.add_argument('--config', default="phototags.ini", help="Configuration file")
 		self.parser.add_argument('--file-tags', default=False, dest='print_file_tags', action='store_true', help="Print tags for each file")
 		self.parser.add_argument('--no-file-tags', dest='print_file_tags', action='store_false', help="Do not print tags for each file")
@@ -25,13 +34,10 @@ class PhotoTags(object):
 		self.parser.add_argument('--no-check-exif', dest='check_exif', action='store_false', help="Do not check for old EXIF tags")
 		self.parser.add_argument('--max_files', type=int, default=-1, help="Max number of files (-1 for all of them)")
 		self.args = self.parser.parse_args()
-		if self.args.targ_arg is None:
+		if self.args.targ_arg is None and target_required:
 			self.parser.print_help()
 			sys.exit(1)
-		self.init_logging()
-		self.init_config()
-		self.tag_stats = Tag_Stats(self.tags_allowed, self.tags_required)
-	
+
 	def init_config(self):
 		self.config_parser = configparser.ConfigParser()
 		config_ini = self.args.config

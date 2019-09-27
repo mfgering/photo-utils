@@ -5,15 +5,15 @@ import argparse, os, sys
 import logging
 
 class PhotoTags(object):
-	def __init__(self, target_required=False):
+	def __init__(self, target_required=False, callback=None):
 		self.error_count = 0
 		self.total_files = 0
 		self.tags_allowed = []
 		self.tags_required = []
 		self.parse_args(target_required)
+		self.callback = callback
 		self.init_logging()
 		self.init_config()
-		self.tag_stats = Tag_Stats(self.tags_allowed, self.tags_required)
 	
 	def parse_args(self, target_required=True):
 		self.parser = argparse.ArgumentParser()
@@ -52,6 +52,8 @@ class PhotoTags(object):
 				self.logger.warn("Configuration is missing a [Tags] section")
 		else:
 			self.config = None
+			self.tags_required = None
+			self.tags_allowed = None
 			if self.args.check_allowed or self.args.check_required:
 				self.logger.error("Missing config file '%s'", config_ini)
 				self.error_count += 1
@@ -68,12 +70,20 @@ class PhotoTags(object):
 		return result
 
 	def process_target(self, target=None):
+		self.stop = False
+		self.tag_stats = Tag_Stats(self.tags_allowed, self.tags_required, self.callback)
 		self.total_files = 0
 		if target is None:
 			target = self.args.targ_arg
 		if os.path.isdir(target) or os.path.isfile(target):
 			for dir_name, _, file_list in os.walk(target):
+				if self.stop:
+					break
 				for fn in file_list:
+					if self.stop:
+						break
+					bad_tags = []
+					missing_tags =[]
 					fn_full = os.path.join(dir_name, fn)
 					tags = self.tag_stats.get_tags(fn_full)
 					if self.args.print_file_tags:
@@ -81,13 +91,15 @@ class PhotoTags(object):
 					if self.args.frequency:
 						self.tag_stats.add_tag_info(fn_full, tags)
 					if self.args.check_allowed:
-						self.tag_stats.check_allowed(fn_full, tags)
+						bad_tags = self.tag_stats.check_allowed(fn_full, tags)
 					if self.args.check_required:
 						self.tag_stats.check_required(fn_full, tags)
+					self.doCallback("tags", {"filename": fn_full, "tags": tags, "missingTags": missing_tags,
+									"badTags": bad_tags})					
 					self.total_files += 1
 					if self.total_files % 100 == 0:
 						self.logger.info("%s files processed...", str(self.total_files))
-					if self.total_files >= self.args.max_files:
+					if self.args.max_files > 0 and self.total_files >= self.args.max_files:
 						self.logger.info("%s maximum files reached", str(self.args.max_files))
 						break
 			if self.args.frequency:
@@ -98,6 +110,7 @@ class PhotoTags(object):
 				self.tag_stats.print_required(self.logger)
 			if self.args.check_exif:
 				self.tag_stats.print_exif_keyword_files(self.logger)
+			self.doCallback("done", {"errorCount": self.get_error_count(), "wasStopped": self.stop})
 			return self.get_error_count()
 		else:
 			self.logger.error("Target %s is neither a file or directory", target)
@@ -114,11 +127,18 @@ class PhotoTags(object):
 		exifread_logger = logging.getLogger('exifread')
 		exifread_logger.setLevel(logging.ERROR)
 
+	def stop_processing(self):
+		self.stop = True
+
 	def get_error_count(self):
 		return self.tag_stats.get_error_count() + self.error_count
+	
+	def doCallback(self, name, data):
+		if self.callback is not None:
+			self.callback(name, data)
 
 class Tag_Stats(object):
-	def __init__(self, tags_allowed, tags_required):
+	def __init__(self, tags_allowed, tags_required, callback):
 		self.freq_dict = {}
 		self.bad_tags = []
 		self.missing_tags = []
@@ -151,16 +171,22 @@ class Tag_Stats(object):
 			self.freq_dict[tag] += 1
 	
 	def check_allowed(self, fn, tags):
-		#TODO: Check for config is None
-		for tag in tags:
-			if tag not in self.tags_allowed and tag not in self.tags_required:
-				self.bad_tags.append((fn, tag))
+		bad_tags = []
+		if self.tags_required is not None:
+			for tag in tags:
+				if tag not in self.tags_allowed and tag not in self.tags_required:
+					self.bad_tags.append((fn, tag))
+					bad_tags.append(tag)
+		return bad_tags
 
 	def check_required(self, fn, tags):
-		#TODO: Check for config is None
-		for tag_required in self.tags_required:
-			if tag_required not in tags:
-				self.missing_tags.append((fn, tag_required))
+		missing_tags = []
+		if self.tags_required is not None:
+			for tag_required in self.tags_required:
+				if tag_required not in tags:
+					self.missing_tags.append((fn, tag_required))
+					missing_tags.append(tag_required)
+		return missing_tags
 	
 	def print_frequency(self, logger):
 		logger.info("Tag frequencies:")
@@ -185,6 +211,11 @@ class Tag_Stats(object):
 	def get_error_count(self):
 		error_count = len(self.bad_tags) + len(self.missing_tags)
 		return error_count
+
+class PhotoTagsCallback(object):
+	def __init__(self, name=None, data=None):
+		self.name = name
+		self.data = data
 
 def main():
 	photo_tags = PhotoTags()

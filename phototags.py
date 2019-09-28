@@ -5,38 +5,16 @@ import argparse, os, sys
 import logging
 
 class PhotoTags(object):
-	def __init__(self, target_required=False, callback=None):
+	def __init__(self, target_required=False, callback=None, args=None):
 		self.error_count = 0
 		self.total_files = 0
 		self.tags_allowed = []
 		self.tags_required = []
-		self.parse_args(target_required)
+		self.args = args
 		self.callback = callback
 		self.init_logging()
 		self.init_config()
 	
-	def parse_args(self, target_required=True):
-		self.parser = argparse.ArgumentParser()
-		if target_required:
-			self.parser.add_argument('targ_arg', help="File or directory to check")
-		else: 
-			self.parser.add_argument('--target', dest='targ_arg', help="File or directory to check")
-		self.parser.add_argument('--config', default="phototags.ini", help="Configuration file")
-		self.parser.add_argument('--file-tags', default=False, dest='print_file_tags', action='store_true', help="Print tags for each file")
-		self.parser.add_argument('--no-file-tags', dest='print_file_tags', action='store_false', help="Do not print tags for each file")
-		self.parser.add_argument('--check-allowed', default=False, dest='check_allowed', action='store_true', help="Check that each tag is required or allowed")
-		self.parser.add_argument('--no-check-allowed', dest='check_allowed', action='store_false', help="Do not check that each tag is required or allowed")
-		self.parser.add_argument('--check-required', default=False, dest='check_required', action='store_true', help="Check that each image has required tags")
-		self.parser.add_argument('--no-check-required', dest='check_required', action='store_false', help="No check that each image has required tags")
-		self.parser.add_argument('--frequency', default=False, action='store_true', help="Tally tag frequencies")
-		self.parser.add_argument('--no-frequency', action='store_false', help="Do not tally tag frequencies")
-		self.parser.add_argument('--check-exif', default=False, dest='check_exif', action='store_true', help="Check for old EXIF tags")
-		self.parser.add_argument('--no-check-exif', dest='check_exif', action='store_false', help="Do not check for old EXIF tags")
-		self.parser.add_argument('--max_files', type=int, default=-1, help="Max number of files (-1 for all of them)")
-		self.args = self.parser.parse_args()
-		if self.args.targ_arg is None and target_required:
-			self.parser.print_help()
-			sys.exit(1)
 
 	def init_config(self):
 		self.config_parser = configparser.ConfigParser()
@@ -218,8 +196,12 @@ class PhotoTagsCallback(object):
 		self.data = data
 
 def main():
-	photo_tags = PhotoTags()
-	photo_tags.logger.setLevel(logging.DEBUG)
+	parser = initArgParser()
+	parser.add_argument('targ_arg', help="File or directory to check")
+	args = parser.parse_args()
+	photo_tags = PhotoTags(args=args)
+	if args.debug:
+		photo_tags.logger.setLevel(logging.DEBUG)
 	error_count = photo_tags.process_target()
 	photo_tags.logger.info("%s files processed", str(photo_tags.total_files))
 	if error_count > 0:
@@ -230,6 +212,24 @@ def main():
 	else:
 		photo_tags.logger.info("No errors")
 	return error_count
+
+def initArgParser():
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--config', default="phototags.ini", help="Configuration file")
+	parser.add_argument('--file-tags', default=False, dest='print_file_tags', action='store_true', help="Print tags for each file")
+	parser.add_argument('--no-file-tags', dest='print_file_tags', action='store_false', help="Do not print tags for each file")
+	parser.add_argument('--check-allowed', default=False, dest='check_allowed', action='store_true', help="Check that each tag is required or allowed")
+	parser.add_argument('--no-check-allowed', dest='check_allowed', action='store_false', help="Do not check that each tag is required or allowed")
+	parser.add_argument('--check-required', default=False, dest='check_required', action='store_true', help="Check that each image has required tags")
+	parser.add_argument('--no-check-required', dest='check_required', action='store_false', help="No check that each image has required tags")
+	parser.add_argument('--frequency', default=False, action='store_true', help="Tally tag frequencies")
+	parser.add_argument('--no-frequency', action='store_false', help="Do not tally tag frequencies")
+	parser.add_argument('--check-exif', default=False, dest='check_exif', action='store_true', help="Check for old EXIF tags")
+	parser.add_argument('--no-check-exif', dest='check_exif', action='store_false', help="Do not check for old EXIF tags")
+	parser.add_argument('--max_files', type=int, default=-1, help="Max number of files (-1 for all of them)")
+	parser.add_argument('--debug', default=False, dest='debug', action='store_true', help="Enable debugging")
+	parser.add_argument('--no-debug', dest='debug', action='store_false', help="Do not enable debugging")
+	return parser
 
 if __name__ == '__main__':
 	error_count = main()

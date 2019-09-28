@@ -8,6 +8,16 @@ class MainWindow(wx.Frame):
         self.guiThreadId = threading.current_thread().ident
         self.logFrame = LogFrame(self)
 
+        toolbar = self.CreateToolBar()
+        startButton = wx.Button(toolbar, label="Start")
+        toolbar.AddControl(startButton)
+        startButton.Bind(wx.EVT_BUTTON, self.OnProcess)
+        stopButton = wx.Button(toolbar, label="Stop")
+        toolbar.AddControl(stopButton)
+        stopButton.Bind(wx.EVT_BUTTON, self.OnStop)
+
+        toolbar.Realize()
+
         self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
         self.CreateStatusBar()
 

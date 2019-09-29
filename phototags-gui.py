@@ -1,5 +1,6 @@
 import phototags
 import logging, os, sys, threading, wx
+import wx.grid as gridlib
 
 class MainWindow(wx.Frame):
 	def __init__(self, parent, title):
@@ -18,10 +19,13 @@ class MainWindow(wx.Frame):
 		toolbar.AddControl(self.stopButton)
 		self.stopButton.Bind(wx.EVT_BUTTON, self.OnStop)
 		self.stopButton.Disable()
-
+		self.showTagsButton = wx.Button(toolbar, label="Show Tags")
+		toolbar.AddControl(self.showTagsButton)
+		self.showTagsButton.Bind(wx.EVT_BUTTON, self.OnShowTags)
+		self.showTagsButton.Disable()
 		toolbar.Realize()
 
-		self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
+		#self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
 		self.CreateStatusBar()
 
 		filemenu=wx.Menu()
@@ -59,6 +63,7 @@ class MainWindow(wx.Frame):
 		self.parseArgs()
 		self.target = self.args.targ_arg
 
+		self.tag_info = []
 		self.setButtonStates()
 		print("App starting")
 
@@ -93,6 +98,7 @@ class MainWindow(wx.Frame):
 		if os.path.isdir(self.target) or os.path.isfile(self.target):
 			self.fileCount = 0
 			self.filename = None
+			self.tag_info = []
 			self.StatusBar.SetStatusText("Starting to process images...")
 			self.workerThread = PhotoTagsThread(self.processCallback, self.args, self.target)
 			self.workerThread.start()
@@ -105,17 +111,26 @@ class MainWindow(wx.Frame):
 		self.workerThread.stop()
 		self.setButtonStates()
 
+	def OnShowTags(self, e):
+		grid = gridlib.Grid(self)
+		grid.CreateGrid(len(self.tag_info), 2)
+		row_num = 0
+		for row in self.tag_info:
+			grid.SetCellValue(row_num, 0, row[0])
+			grid.SetCellValue(row_num, 1, ", ".join(row[1]))
+			row_num += 1
+		#sizer = wx.BoxSizer(wx.VERTICAL)
+		#sizer.Add(grid, 1, wx.EXPAND)
+
+
 	def setButtonStates(self):
 		target_ok = os.path.isdir(self.target) or os.path.isfile(self.target)
 		processing = self.workerThread is not None and not self.workerThread.stopping
-		if target_ok and not processing:
-			self.startButton.Enable()
-		else:
-			self.startButton.Disable()
-		if processing:
-			self.stopButton.Enable()
-		else:
-			self.stopButton.Disable()
+		self.startButton.Enable(target_ok and not processing)
+		self.stopButton.Enable(processing)
+		showButtonsState = (not processing) and len(self.tag_info) > 0
+		for button in [self.showTagsButton]:
+			button.Enable(showButtonsState)
 
 	def processCallback(self, callbackName, callbackData):
 		if callbackName == "tags":
@@ -128,7 +143,7 @@ class MainWindow(wx.Frame):
 			self.bad_tags = callbackData["badTags"]
 			if len(self.bad_tags) > 0:
 				self.showBadTags(self.filename, self.bad_tags)
-
+			self.tag_info.append((self.filename, self.tags, self.missing_tags, self.bad_tags))
 			self.StatusBar.SetStatusText("%s: %s: %s" % (self.fileCount, self.filename, ", ".join(self.tags)))
 		elif callbackName == "done":
 			self.errorCount = callbackData["errorCount"]
@@ -141,10 +156,10 @@ class MainWindow(wx.Frame):
 			self.StatusBar.SetStatusText("Error: Unknown callback name %s" % (callbackName))
 
 	def showMissingTags(self, filename, tags):
-		pass
+		pass #TODO: REMOVE THIS
 
 	def showBadTags(self, filename, tags):
-		pass
+		pass #TODO: REMOVE THIS
 	
 	def OnExit(self,e):
 		self.Close(True)  # Close the frame.

@@ -9,6 +9,7 @@ class MainWindow(wx.Frame):
 		self.workerThread = None
 		self.guiThreadId = threading.current_thread().ident
 		self.logFrame = LogFrame(self)
+		self.panel = wx.Panel(self, wx.ID_ANY)
 
 		toolbar = self.CreateToolBar()
 		self.startButton = wx.Button(toolbar, label="Start")
@@ -112,15 +113,32 @@ class MainWindow(wx.Frame):
 		self.setButtonStates()
 
 	def OnShowTags(self, e):
-		grid = gridlib.Grid(self)
-		grid.CreateGrid(len(self.tag_info), 2)
+		font = wx.Font(18, wx.FONTFAMILY_DECORATIVE, wx.FONTSTYLE_NORMAL, wx.BOLD)
+		self.titleText = wx.StaticText(self.panel, label="Tags for Files", style=wx.ALIGN_CENTER)
+		self.titleText.SetFont(font)
+		titleSizer = wx.BoxSizer(wx.HORIZONTAL)
+		titleSizer.Add(self.titleText, 1, wx.ALL|wx.EXPAND)
+		self.grid = gridlib.Grid(self.panel)
+		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
+		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
+		self.grid.CreateGrid(len(self.tag_info), 2)
+		self.grid.SetDefaultCellOverflow(False)
+		self.grid.SetColLabelValue(0, "Filename")
+		self.grid.SetColLabelValue(1, "Tags")
 		row_num = 0
 		for row in self.tag_info:
-			grid.SetCellValue(row_num, 0, row[0])
-			grid.SetCellValue(row_num, 1, ", ".join(row[1]))
+			self.grid.SetCellValue(row_num, 0, row[0])
+			self.grid.SetCellValue(row_num, 1, ", ".join(row[1]))
+			attr = gridlib.GridCellAttr()
+			attr.SetReadOnly(True)
+			self.grid.SetRowAttr(row_num, attr)
 			row_num += 1
-		#sizer = wx.BoxSizer(wx.VERTICAL)
-		#sizer.Add(grid, 1, wx.EXPAND)
+		self.grid.AutoSize()
+		panelSizer = wx.BoxSizer(wx.VERTICAL)
+		panelSizer.Add(titleSizer, 0, wx.ALL|wx.EXPAND)
+		panelSizer.Add(gridSizer, 0, wx.ALL|wx.EXPAND)
+		self.panel.SetSizer(panelSizer)
+		panelSizer.Fit(self)
 
 
 	def setButtonStates(self):

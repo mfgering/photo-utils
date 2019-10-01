@@ -71,7 +71,7 @@ class PhotoTags(object):
 					if self.args.check_allowed:
 						bad_tags = self.tag_stats.check_allowed(fn_full, tags)
 					if self.args.check_required:
-						self.tag_stats.check_required(fn_full, tags)
+						missing_tags = self.tag_stats.check_required(fn_full, tags)
 					self.doCallback("tags", {"filename": fn_full, "tags": tags, "missingTags": missing_tags,
 									"badTags": bad_tags})					
 					self.total_files += 1

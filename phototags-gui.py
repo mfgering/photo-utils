@@ -37,6 +37,11 @@ class MainWindow(wx.Frame):
 		self.showBadTagsButton.Bind(wx.EVT_BUTTON, self.OnShowBadTags)
 		self.showBadTagsButton.Disable()
 
+		self.showMissingTagsButton = wx.Button(toolbar, label="Show Missing Tags")
+		toolbar.AddControl(self.showMissingTagsButton)
+		self.showMissingTagsButton.Bind(wx.EVT_BUTTON, self.OnShowMissingTags)
+		self.showMissingTagsButton.Disable()
+
 		toolbar.Realize()
 
 		#self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
@@ -159,17 +164,40 @@ class MainWindow(wx.Frame):
 	def OnShowBadTags(self, e):
 		self.resetResults()
 		self.setResultsTitle("Bad Tags")
-		bad_rows = [ (r[0], r[3]) for r in self.tag_info if len(r[3]) > 0]
+		rows = [ (r[0], r[3]) for r in self.tag_info if len(r[3]) > 0]
 		self.grid = gridlib.Grid(self.panel)
 		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
 		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
 		self.panel.GetSizer().Add(gridSizer, 0, wx.ALL|wx.EXPAND)
-		self.grid.CreateGrid(len(bad_rows), 2)
+		self.grid.CreateGrid(len(rows), 2)
 		self.grid.SetDefaultCellOverflow(False)
 		self.grid.SetColLabelValue(0, "Filename")
 		self.grid.SetColLabelValue(1, "Bad Tags")
 		row_num = 0
-		for row in bad_rows:
+		for row in rows:
+			self.grid.SetCellValue(row_num, 0, row[0])
+			self.grid.SetCellValue(row_num, 1, ", ".join(row[1]))
+			attr = gridlib.GridCellAttr()
+			attr.SetReadOnly(True)
+			self.grid.SetRowAttr(row_num, attr)
+			row_num += 1
+		self.grid.AutoSize()
+		self.panel.Layout()
+
+	def OnShowMissingTags(self, e):
+		self.resetResults()
+		self.setResultsTitle("Missing Tags")
+		rows = [ (r[0], r[2]) for r in self.tag_info if len(r[2]) > 0]
+		self.grid = gridlib.Grid(self.panel)
+		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
+		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
+		self.panel.GetSizer().Add(gridSizer, 0, wx.ALL|wx.EXPAND)
+		self.grid.CreateGrid(len(rows), 2)
+		self.grid.SetDefaultCellOverflow(False)
+		self.grid.SetColLabelValue(0, "Filename")
+		self.grid.SetColLabelValue(1, "Missing Tags")
+		row_num = 0
+		for row in rows:
 			self.grid.SetCellValue(row_num, 0, row[0])
 			self.grid.SetCellValue(row_num, 1, ", ".join(row[1]))
 			attr = gridlib.GridCellAttr()
@@ -195,7 +223,7 @@ class MainWindow(wx.Frame):
 		self.startButton.Enable(target_ok and not processing)
 		self.stopButton.Enable(processing)
 		showButtonsState = (not processing) and len(self.tag_info) > 0
-		for button in [self.showTagsButton, self.showBadTagsButton]:
+		for button in [self.showTagsButton, self.showBadTagsButton, self.showMissingTagsButton]:
 			button.Enable(showButtonsState)
 
 	def processCallback(self, callbackName, callbackData):

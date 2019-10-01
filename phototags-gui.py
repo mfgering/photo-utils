@@ -12,18 +12,27 @@ class MainWindow(wx.Frame):
 		self.panel = wx.Panel(self, wx.ID_ANY)
 
 		toolbar = self.CreateToolBar()
+
 		self.startButton = wx.Button(toolbar, label="Start")
 		toolbar.AddControl(self.startButton)
 		self.startButton.Bind(wx.EVT_BUTTON, self.OnProcess)
 		self.startButton.Disable()
+
 		self.stopButton = wx.Button(toolbar, label="Stop")
 		toolbar.AddControl(self.stopButton)
 		self.stopButton.Bind(wx.EVT_BUTTON, self.OnStop)
 		self.stopButton.Disable()
+
 		self.showTagsButton = wx.Button(toolbar, label="Show Tags")
 		toolbar.AddControl(self.showTagsButton)
 		self.showTagsButton.Bind(wx.EVT_BUTTON, self.OnShowTags)
 		self.showTagsButton.Disable()
+
+		self.showBadTagsButton = wx.Button(toolbar, label="Show Bad Tags")
+		toolbar.AddControl(self.showBadTagsButton)
+		self.showBadTagsButton.Bind(wx.EVT_BUTTON, self.OnShowBadTags)
+		self.showBadTagsButton.Disable()
+
 		toolbar.Realize()
 
 		#self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
@@ -140,6 +149,8 @@ class MainWindow(wx.Frame):
 		self.panel.SetSizer(panelSizer)
 		panelSizer.Fit(self)
 
+	def OnShowBadTags(self, e):
+		pass
 
 	def setButtonStates(self):
 		target_ok = os.path.isdir(self.target) or os.path.isfile(self.target)
@@ -147,7 +158,7 @@ class MainWindow(wx.Frame):
 		self.startButton.Enable(target_ok and not processing)
 		self.stopButton.Enable(processing)
 		showButtonsState = (not processing) and len(self.tag_info) > 0
-		for button in [self.showTagsButton]:
+		for button in [self.showTagsButton, self.showBadTagsButton]:
 			button.Enable(showButtonsState)
 
 	def processCallback(self, callbackName, callbackData):

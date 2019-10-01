@@ -113,7 +113,8 @@ class MainWindow(wx.Frame):
 			self.grid.Destroy()
 			self.grid = None
 		if self.titleText is not None:
-			self.titleText.Hide()
+			self.titleText.Destroy()
+			self.titleText = None
 
 	def OnProcess(self, e):
 		if os.path.isdir(self.target) or os.path.isfile(self.target):
@@ -134,16 +135,16 @@ class MainWindow(wx.Frame):
 		self.setButtonStates()
 
 	def OnShowTags(self, e):
+		self.resetResults()
 		self.setResultsTitle("File Tags")
-		if self.grid is not None:
-			self.grid.Destroy()
 		self.grid = gridlib.Grid(self.panel)
-		self.grid.CreateGrid(len(self.tag_info), 2)
 		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
 		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
+		self.panel.GetSizer().Add(gridSizer, 0, wx.ALL|wx.EXPAND)
+		self.grid.CreateGrid(len(self.tag_info), 2)
 		self.grid.SetDefaultCellOverflow(False)
 		self.grid.SetColLabelValue(0, "Filename")
-		self.grid.SetColLabelValue(1, "Tags")
+		self.grid.SetColLabelValue(1, "All Tags")
 		row_num = 0
 		for row in self.tag_info:
 			self.grid.SetCellValue(row_num, 0, row[0])
@@ -152,12 +153,8 @@ class MainWindow(wx.Frame):
 			attr.SetReadOnly(True)
 			self.grid.SetRowAttr(row_num, attr)
 			row_num += 1
-		panelSizer = self.panel.GetSizer()
-#		panelSizer.Add(self.titleText.GetSizer(), 0, wx.ALL|wx.EXPAND)
-		panelSizer.Add(gridSizer, 0, wx.ALL|wx.EXPAND)
-#		self.panel.SetSizer(panelSizer)
-		panelSizer.Fit(self)
 		self.grid.AutoSize()
+		self.panel.Layout()
 
 	def OnShowBadTags(self, e):
 		self.resetResults()
@@ -166,7 +163,7 @@ class MainWindow(wx.Frame):
 		self.grid = gridlib.Grid(self.panel)
 		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
 		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
-
+		self.panel.GetSizer().Add(gridSizer, 0, wx.ALL|wx.EXPAND)
 		self.grid.CreateGrid(len(bad_rows), 2)
 		self.grid.SetDefaultCellOverflow(False)
 		self.grid.SetColLabelValue(0, "Filename")
@@ -180,6 +177,7 @@ class MainWindow(wx.Frame):
 			self.grid.SetRowAttr(row_num, attr)
 			row_num += 1
 		self.grid.AutoSize()
+		self.panel.Layout()
 
 	def setResultsTitle(self, text):
 		if self.titleText is None:
@@ -218,12 +216,6 @@ class MainWindow(wx.Frame):
 		else:
 			logging.getLogger().error("Unknown callback name %s", callbackName)
 			self.StatusBar.SetStatusText("Error: Unknown callback name %s" % (callbackName))
-
-	def showMissingTags(self, filename, tags):
-		pass #TODO: REMOVE THIS
-
-	def showBadTags(self, filename, tags):
-		pass #TODO: REMOVE THIS
 	
 	def OnExit(self,e):
 		self.Close(True)  # Close the frame.

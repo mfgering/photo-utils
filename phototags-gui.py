@@ -10,6 +10,10 @@ class MainWindow(wx.Frame):
 		self.guiThreadId = threading.current_thread().ident
 		self.logFrame = LogFrame(self)
 		self.panel = wx.Panel(self, wx.ID_ANY)
+		panelSizer = wx.BoxSizer(wx.VERTICAL)
+		self.panel.SetSizer(panelSizer)
+		self.grid = None
+		self.titleText = None
 
 		toolbar = self.CreateToolBar()
 
@@ -104,12 +108,20 @@ class MainWindow(wx.Frame):
 	def logClosed(self):
 		self.logFrame = None
 
+	def resetResults(self):
+		if self.grid is not None:
+			self.grid.Destroy()
+			self.grid = None
+		if self.titleText is not None:
+			self.titleText.Hide()
+
 	def OnProcess(self, e):
 		if os.path.isdir(self.target) or os.path.isfile(self.target):
 			self.fileCount = 0
 			self.filename = None
 			self.tag_info = []
 			self.StatusBar.SetStatusText("Starting to process images...")
+			self.resetResults()
 			self.workerThread = PhotoTagsThread(self.processCallback, self.args, self.target)
 			self.workerThread.start()
 		else:
@@ -122,15 +134,13 @@ class MainWindow(wx.Frame):
 		self.setButtonStates()
 
 	def OnShowTags(self, e):
-		font = wx.Font(18, wx.FONTFAMILY_DECORATIVE, wx.FONTSTYLE_NORMAL, wx.BOLD)
-		self.titleText = wx.StaticText(self.panel, label="Tags for Files", style=wx.ALIGN_CENTER)
-		self.titleText.SetFont(font)
-		titleSizer = wx.BoxSizer(wx.HORIZONTAL)
-		titleSizer.Add(self.titleText, 1, wx.ALL|wx.EXPAND)
+		self.setResultsTitle("File Tags")
+		if self.grid is not None:
+			self.grid.Destroy()
 		self.grid = gridlib.Grid(self.panel)
+		self.grid.CreateGrid(len(self.tag_info), 2)
 		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
 		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
-		self.grid.CreateGrid(len(self.tag_info), 2)
 		self.grid.SetDefaultCellOverflow(False)
 		self.grid.SetColLabelValue(0, "Filename")
 		self.grid.SetColLabelValue(1, "Tags")
@@ -142,19 +152,48 @@ class MainWindow(wx.Frame):
 			attr.SetReadOnly(True)
 			self.grid.SetRowAttr(row_num, attr)
 			row_num += 1
-		self.grid.AutoSize()
-		panelSizer = wx.BoxSizer(wx.VERTICAL)
-		panelSizer.Add(titleSizer, 0, wx.ALL|wx.EXPAND)
+		panelSizer = self.panel.GetSizer()
+#		panelSizer.Add(self.titleText.GetSizer(), 0, wx.ALL|wx.EXPAND)
 		panelSizer.Add(gridSizer, 0, wx.ALL|wx.EXPAND)
-		self.panel.SetSizer(panelSizer)
+#		self.panel.SetSizer(panelSizer)
 		panelSizer.Fit(self)
+		self.grid.AutoSize()
 
 	def OnShowBadTags(self, e):
-		pass
+		self.resetResults()
+		self.setResultsTitle("Bad Tags")
+		bad_rows = [ (r[0], r[3]) for r in self.tag_info if len(r[3]) > 0]
+		self.grid = gridlib.Grid(self.panel)
+		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
+		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
+
+		self.grid.CreateGrid(len(bad_rows), 2)
+		self.grid.SetDefaultCellOverflow(False)
+		self.grid.SetColLabelValue(0, "Filename")
+		self.grid.SetColLabelValue(1, "Bad Tags")
+		row_num = 0
+		for row in bad_rows:
+			self.grid.SetCellValue(row_num, 0, row[0])
+			self.grid.SetCellValue(row_num, 1, ", ".join(row[1]))
+			attr = gridlib.GridCellAttr()
+			attr.SetReadOnly(True)
+			self.grid.SetRowAttr(row_num, attr)
+			row_num += 1
+		self.grid.AutoSize()
+
+	def setResultsTitle(self, text):
+		if self.titleText is None:
+			font = wx.Font(18, wx.FONTFAMILY_DECORATIVE, wx.FONTSTYLE_NORMAL, wx.BOLD)
+			self.titleText = wx.StaticText(self.panel, style=wx.ALIGN_CENTER)
+			self.titleText.SetFont(font)
+			titleSizer = wx.BoxSizer(wx.HORIZONTAL)
+			titleSizer.Add(self.titleText, 1, wx.ALL|wx.EXPAND)
+			self.panel.GetSizer().Add(titleSizer, 0, wx.ALL|wx.EXPAND)
+		self.titleText.SetLabel(text)
 
 	def setButtonStates(self):
 		target_ok = os.path.isdir(self.target) or os.path.isfile(self.target)
-		processing = self.workerThread is not None and not self.workerThread.stopping
+		processing = self.workerThread is not None and not (self.workerThread.stopping or self.workerThread.done)
 		self.startButton.Enable(target_ok and not processing)
 		self.stopButton.Enable(processing)
 		showButtonsState = (not processing) and len(self.tag_info) > 0
@@ -164,22 +203,18 @@ class MainWindow(wx.Frame):
 	def processCallback(self, callbackName, callbackData):
 		if callbackName == "tags":
 			self.fileCount += 1
-			self.filename = callbackData["filename"]
-			self.tags = callbackData["tags"]
-			self.missing_tags = callbackData["missingTags"]
-			if len(self.missing_tags) > 0:
-				self.showMissingTags(self.filename, self.missing_tags)
-			self.bad_tags = callbackData["badTags"]
-			if len(self.bad_tags) > 0:
-				self.showBadTags(self.filename, self.bad_tags)
-			self.tag_info.append((self.filename, self.tags, self.missing_tags, self.bad_tags))
-			self.StatusBar.SetStatusText("%s: %s: %s" % (self.fileCount, self.filename, ", ".join(self.tags)))
+			filename = callbackData["filename"]
+			tags = callbackData["tags"]
+			self.tag_info.append((filename, tags, callbackData["missingTags"], callbackData["badTags"]))
+			self.StatusBar.SetStatusText("%s: %s: %s" % (self.fileCount, filename, ", ".join(tags)))
 		elif callbackName == "done":
 			self.errorCount = callbackData["errorCount"]
 			status = "Done"
 			if callbackData["wasStopped"]:
 				status = "Stopped"
 			self.StatusBar.SetStatusText("Files: %s; %s - total errors: %s" % (self.fileCount, status, self.errorCount))
+			self.workerThread.done = True
+			self.setButtonStates()
 		else:
 			logging.getLogger().error("Unknown callback name %s", callbackName)
 			self.StatusBar.SetStatusText("Error: Unknown callback name %s" % (callbackName))
@@ -246,12 +281,14 @@ class PhotoTagsThread(threading.Thread):
 		self.args = args
 		self.target = target
 		self.stopping = False
+		self.done = False
 
 	def run(self):
 		self.photo_tags = phototags.PhotoTags(target_required=False, callback=self.callback, args=self.args)
 		if self.args.debug:
 			self.photo_tags.logger.setLevel(logging.DEBUG)
 		self.errorCount = self.photo_tags.process_target(self.target)
+		self.done = True
 
 	def stop(self):
 		self.photo_tags.stop_processing()

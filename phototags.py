@@ -150,7 +150,7 @@ class Tag_Stats(object):
 	
 	def check_allowed(self, fn, tags):
 		bad_tags = []
-		if self.tags_required is not None:
+		if self.tags_allowed is not None:
 			for tag in tags:
 				if tag not in self.tags_allowed and tag not in self.tags_required:
 					self.bad_tags.append((fn, tag))

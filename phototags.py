@@ -5,47 +5,15 @@ import argparse, os, sys
 import logging
 
 class PhotoTags(object):
-	def __init__(self, target_required=False, callback=None, args=None):
+	def __init__(self, target_required=False, callback=None, args=None,
+				tags_allowed=[], tags_required=[]):
 		self.error_count = 0
 		self.total_files = 0
-		self.tags_allowed = []
-		self.tags_required = []
+		self.tags_allowed = tags_allowed
+		self.tags_required = tags_required
 		self.args = args
 		self.callback = callback
 		self.init_logging()
-		self.init_config()
-	
-
-	def init_config(self):
-		self.config_parser = configparser.ConfigParser()
-		config_ini = self.args.config
-		if os.path.isfile(config_ini):
-			self.config_parser.read(config_ini)
-			if self.config_parser.has_section("Tags"):
-				option = self.config_parser.get("Tags", "required")
-				self.tags_required = self.option2tags(option)
-				option = self.config_parser.get("Tags", "allowed")
-				self.tags_allowed = self.option2tags(option)
-			else:
-				self.logger.warn("Configuration is missing a [Tags] section")
-		else:
-			self.config = None
-			self.tags_required = None
-			self.tags_allowed = None
-			if self.args.check_allowed or self.args.check_required:
-				self.logger.error("Missing config file '%s'", config_ini)
-				self.error_count += 1
-				self.args.check_allowed = False
-				self.args.check_required = False
-
-	def option2tags(self, option):
-		arr = option.split("\n")
-		result = []
-		for t in arr:
-			t_trim = t.strip()
-			if len(t_trim) > 0:
-				result.append(t_trim)
-		return result
 
 	def process_target(self, target=None):
 		self.stop = False
@@ -196,21 +164,28 @@ class PhotoTagsCallback(object):
 		self.data = data
 
 def main():
-	parser = initArgParser()
-	parser.add_argument('targ_arg', help="File or directory to check")
-	args = parser.parse_args()
-	photo_tags = PhotoTags(args=args)
-	if args.debug:
-		photo_tags.logger.setLevel(logging.DEBUG)
-	error_count = photo_tags.process_target()
-	photo_tags.logger.info("%s files processed", str(photo_tags.total_files))
-	if error_count > 0:
-		label = "errors"
-		if error_count == 1:
-			label = "error"
-		photo_tags.logger.error("%s %s", error_count, label)
-	else:
-		photo_tags.logger.info("No errors")
+	try:
+		parser = initArgParser()
+		parser.add_argument('targ_arg', help="File or directory to check")
+		args = parser.parse_args()
+		config = PhotoTagsConfig()
+		config.read_config(args.config)
+		photo_tags = PhotoTags(args=args, 
+						tags_allowed=config.tags_allowed,
+						tags_required=config.tags_required)
+		if args.debug:
+			photo_tags.logger.setLevel(logging.DEBUG)
+		error_count = photo_tags.process_target()
+		photo_tags.logger.info("%s files processed", str(photo_tags.total_files))
+		if error_count > 0:
+			label = "errors"
+			if error_count == 1:
+				label = "error"
+			photo_tags.logger.error("%s %s", error_count, label)
+		else:
+			photo_tags.logger.info("No errors")
+	except PhotoTagsException as exc:
+		photo_tags.logger.exception(exc)
 	return error_count
 
 def initArgParser():
@@ -230,6 +205,41 @@ def initArgParser():
 	parser.add_argument('--debug', default=False, dest='debug', action='store_true', help="Enable debugging")
 	parser.add_argument('--no-debug', dest='debug', action='store_false', help="Do not enable debugging")
 	return parser
+
+class PhotoTagsConfig(object):
+	def __init__(self):
+		self.config_parser = None
+		self.config_ini = None
+		self.tags_required = []
+		self.tags_allowed = []
+
+	def read_config(self, config_ini="phototags.ini"):
+		self.config_parser = configparser.ConfigParser()
+		self.config_ini = config_ini
+		if os.path.isfile(config_ini):
+			self.config_parser.read(config_ini)
+			if self.config_parser.has_section("Tags"):
+				option = self.config_parser.get("Tags", "required")
+				self.tags_required = self.option2tags(option)
+				option = self.config_parser.get("Tags", "allowed")
+				self.tags_allowed = self.option2tags(option)
+			else:
+				raise PhotoTagsException("Configuration is missing a [Tags] section")
+		else:
+			raise PhotoTagsException("Missing config file '%s'", config_ini)
+
+	def option2tags(self, option):
+		arr = option.split("\n")
+		result = []
+		for t in arr:
+			t_trim = t.strip()
+			if len(t_trim) > 0:
+				result.append(t_trim)
+		return result
+
+
+class PhotoTagsException(Exception):
+	pass
 
 if __name__ == '__main__':
 	error_count = main()

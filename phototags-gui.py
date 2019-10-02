@@ -9,6 +9,7 @@ class MainWindow(wx.Frame):
 		self.workerThread = None
 		self.guiThreadId = threading.current_thread().ident
 		self.logFrame = LogFrame(self)
+		self.tagsFrame = None
 		self.panel = wx.Panel(self, wx.ID_ANY)
 		panelSizer = wx.BoxSizer(wx.VERTICAL)
 		self.panel.SetSizer(panelSizer)
@@ -50,7 +51,7 @@ class MainWindow(wx.Frame):
 		filemenu=wx.Menu()
 		target_id = wx.Window.NewControlId()
 		menuTarget = filemenu.Append(target_id, "&Target", "Target directory or file to process")
-		menuAbout = filemenu.Append(wx.ID_ABOUT, "&About"," Information about this program")
+		menuTags = filemenu.Append(wx.ID_ANY, "Tags", "Tag configuration")
 		menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
 
 		processMenu = wx.Menu()
@@ -62,6 +63,7 @@ class MainWindow(wx.Frame):
 		helpMenu = wx.Menu()
 		logId = wx.Window.NewControlId()
 		menuLog = helpMenu.Append(logId, "&Log", "Show log records")
+		menuAbout = helpMenu.Append(wx.ID_ABOUT, "&About"," Information about this program")
 
 		menuBar = wx.MenuBar()
 		menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
@@ -72,6 +74,7 @@ class MainWindow(wx.Frame):
 
 		# Set events.
 		self.Bind(wx.EVT_MENU, self.OnTarget, menuTarget)
+		self.Bind(wx.EVT_MENU, self.OnTags, menuTags)
 		self.Bind(wx.EVT_MENU, self.OnProcess, menuProcess)
 		self.Bind(wx.EVT_MENU, self.OnStop, menuStop)
 		self.Bind(wx.EVT_MENU, self.OnAbout, menuAbout)
@@ -81,6 +84,9 @@ class MainWindow(wx.Frame):
 
 		self.parseArgs()
 		self.target = self.args.targ_arg
+
+		self.config = phototags.PhotoTagsConfig()
+		self.config.read_config(self.args.config)
 
 		self.tag_info = []
 		self.setButtonStates()
@@ -99,19 +105,27 @@ class MainWindow(wx.Frame):
 		dlg.Destroy() # finally destroy it when finished.
 		self.startButton.Enable()
 
+	def OnTags(self, e):
+		if self.tagsFrame is None:
+			self.tagsFrame = TagsFrame(self)
+		self.tagsFrame.Show()
+
 	def OnAbout(self,e):
 		# A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets.
 		dlg = wx.MessageDialog(self, "Process image tags", "About phototags-gui", wx.OK)
 		dlg.ShowModal() # Show it
 		dlg.Destroy() # finally destroy it when finished.
 
-	def OnLog(self,e):
+	def OnLog(self, e):
 		if self.logFrame is None:
 			self.logFrame = LogFrame(self)
 		self.logFrame.Show()
 
 	def logClosed(self):
 		self.logFrame = None
+
+	def tagsClosed(self):
+		self.tagsFrame = None
 
 	def resetResults(self):
 		if self.grid is not None:
@@ -128,7 +142,7 @@ class MainWindow(wx.Frame):
 			self.tag_info = []
 			self.StatusBar.SetStatusText("Starting to process images...")
 			self.resetResults()
-			self.workerThread = PhotoTagsThread(self.processCallback, self.args, self.target)
+			self.workerThread = PhotoTagsThread(self.processCallback, self.args, self.target, self.config)
 			self.workerThread.start()
 		else:
 			self.StatusBar.SetStatusText("ERROR: Target '%s' is not a file or directory"%(self.target))
@@ -256,13 +270,10 @@ class LogFrame(wx.Frame):
 		panel = wx.Panel(self, wx.ID_ANY)
 		log = wx.TextCtrl(panel, wx.ID_ANY, size=(300,100),
 						  style = wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
-		btn = wx.Button(panel, wx.ID_ANY, 'Push me!')
-		self.Bind(wx.EVT_BUTTON, self.onButton, btn)
  
 		# Add widgets to a sizer        
 		sizer = wx.BoxSizer(wx.VERTICAL)
 		sizer.Add(log, 1, wx.ALL|wx.EXPAND, 5)
-		sizer.Add(btn, 0, wx.ALL|wx.CENTER, 5)
 		panel.SetSizer(sizer)
  
 		# redirect text here
@@ -270,16 +281,37 @@ class LogFrame(wx.Frame):
 		sys.stdout = redir
 		sys.stderr = redir
 
-		self.Bind(wx.EVT_CLOSE, self.OnLogClose)
+		self.Bind(wx.EVT_CLOSE, self.OnClose)
  
-	def onButton(self, event):
-		self.GetParent().onProcess(event) 
-		#print("You pressed the button!")
-
-	def OnLogClose(self,e):
+	def OnClose(self,e):
 		self.GetParent().logClosed()
 		self.Destroy()
 	
+class TagsFrame(wx.Frame):
+	def __init__(self, parent):
+		wx.Frame.__init__(self, parent, wx.ID_ANY, "Tag Configuration")
+ 
+		# Add a panel so it looks the correct on all platforms
+		panel = wx.Panel(self, wx.ID_ANY)
+		log = wx.TextCtrl(panel, wx.ID_ANY, size=(300,100),
+						  style = wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
+ 
+		# Add widgets to a sizer        
+		sizer = wx.BoxSizer(wx.VERTICAL)
+		sizer.Add(log, 1, wx.ALL|wx.EXPAND, 5)
+		panel.SetSizer(sizer)
+ 
+		# redirect text here
+		redir=RedirectText(log, threading.current_thread().ident)
+		sys.stdout = redir
+		sys.stderr = redir
+
+		self.Bind(wx.EVT_CLOSE, self.OnClose)
+ 
+	def OnClose(self,e):
+		#TODO: Check if dirty
+		self.GetParent().tagsClosed()
+		self.Destroy()
 
 class RedirectText(object):
 	def __init__(self, aWxTextCtrl, guiThreadId):
@@ -294,9 +326,10 @@ class RedirectText(object):
 			wx.CallAfter(self.out.WriteText, string)
 
 class PhotoTagsThread(threading.Thread):
-	def __init__(self, callback, args, target):
+	def __init__(self, callback, args, target, config):
 		super().__init__()
 		self.callback = callback
+		self.config = config
 		self.errorCount = 0
 		self.args = args
 		self.target = target
@@ -304,7 +337,8 @@ class PhotoTagsThread(threading.Thread):
 		self.done = False
 
 	def run(self):
-		self.photo_tags = phototags.PhotoTags(target_required=False, callback=self.callback, args=self.args)
+		self.photo_tags = phototags.PhotoTags(target_required=False, callback=self.callback, args=self.args, 
+					tags_allowed=self.config.tags_allowed, tags_required=self.config.tags_required)
 		if self.args.debug:
 			self.photo_tags.logger.setLevel(logging.DEBUG)
 		self.errorCount = self.photo_tags.process_target(self.target)

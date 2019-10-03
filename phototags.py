@@ -1,4 +1,5 @@
 from iptcinfo3 import IPTCInfo
+import datetime
 import exifread
 import configparser
 import argparse, os, sys
@@ -237,7 +238,16 @@ class PhotoTagsConfig(object):
 				result.append(t_trim)
 		return result
 
-
+	def save_config(self):
+		if not self.config_parser.has_section("Tags"):
+			raise PhotoTagsException("Config is missing a \"Tags\" section")
+		file = open(self.config_ini, "w")
+		self.config_parser.set("Tags", "allowed", "\n".join(self.tags_allowed))
+		self.config_parser.set("Tags", "required", "\n".join(self.tags_required))
+		time_str = datetime.datetime.now().strftime("%H:%M%p on %B %d, %Y")
+		file.write("# This file was generated at %s\n\n" % (time_str))
+		self.config_parser.write(file, False)
+		file.close()
 class PhotoTagsException(Exception):
 	pass
 

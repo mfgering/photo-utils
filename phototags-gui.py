@@ -81,15 +81,17 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
 		self.Bind(wx.EVT_MENU, self.OnLog, menuLog)
 		self.Show(True)
+		try:
+			self.parseArgs()
+			self.target = self.args.targ_arg
 
-		self.parseArgs()
-		self.target = self.args.targ_arg
+			self.config = phototags.PhotoTagsConfig()
+			self.config.read_config(self.args.config)
 
-		self.config = phototags.PhotoTagsConfig()
-		self.config.read_config(self.args.config)
-
-		self.tag_info = []
-		self.setButtonStates()
+			self.tag_info = []
+			self.setButtonStates()
+		except Exception as exc:
+			self.GetStatusBar().SetStatusText("Error: "+str(exc))
 		print("App starting")
 
 	def parseArgs(self):
@@ -293,14 +295,17 @@ class TagsFrame(wx.Frame):
 		self.config = config
  
 		toolbar = self.CreateToolBar()
-		toolbar.Realize()
-
-		self.CreateStatusBar()
 
 		self.applyButton = wx.Button(toolbar, label="Apply")
 		toolbar.AddControl(self.applyButton)
 		self.applyButton.Bind(wx.EVT_BUTTON, self.OnApply)
-		#self.applyButton.Disable()
+
+		self.saveButton = wx.Button(toolbar, label="Save")
+		toolbar.AddControl(self.saveButton)
+		self.saveButton.Bind(wx.EVT_BUTTON, self.OnSave)
+
+		toolbar.Realize()
+		self.CreateStatusBar()
 
 		# Add a panel so it looks the correct on all platforms
 		self.panel = wx.Panel(self, wx.ID_ANY)
@@ -334,6 +339,11 @@ class TagsFrame(wx.Frame):
 		self.Bind(wx.EVT_CLOSE, self.OnClose)
  
 	def OnApply(self, e):
+		errors = self.apply2config()
+		if errors == 0:
+			self.StatusBar.SetStatusText("Tag info is applied (but not saved)")
+
+	def apply2config(self):
 		tags_allowed = []
 		tags_required = []
 		errors = 0
@@ -352,7 +362,16 @@ class TagsFrame(wx.Frame):
 		if errors == 0:
 			self.config.tags_allowed = tags_allowed
 			self.config.tags_required = tags_required
-			self.StatusBar.SetStatusText("Tag info is applied (but not saved)")
+		return errors
+
+	def OnSave(self, e):
+		try:
+			errors = self.apply2config()
+			if errors == 0:
+				self.StatusBar.SetStatusText("Tag info is applied and saved")
+				self.config.save_config()
+		except Exception as exc:
+			logging.getLogger().exception(exc)
 		
 	def OnClose(self, e):
 		#TODO: Check if dirty

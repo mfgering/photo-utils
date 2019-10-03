@@ -107,7 +107,7 @@ class MainWindow(wx.Frame):
 
 	def OnTags(self, e):
 		if self.tagsFrame is None:
-			self.tagsFrame = TagsFrame(self)
+			self.tagsFrame = TagsFrame(self, self.config)
 		self.tagsFrame.Show()
 
 	def OnAbout(self,e):
@@ -292,21 +292,69 @@ class TagsFrame(wx.Frame):
 		wx.Frame.__init__(self, parent, wx.ID_ANY, "Tag Configuration")
 		self.config = config
  
+		toolbar = self.CreateToolBar()
+		toolbar.Realize()
+
+		self.CreateStatusBar()
+
+		self.applyButton = wx.Button(toolbar, label="Apply")
+		toolbar.AddControl(self.applyButton)
+		self.applyButton.Bind(wx.EVT_BUTTON, self.OnApply)
+		#self.applyButton.Disable()
+
 		# Add a panel so it looks the correct on all platforms
 		self.panel = wx.Panel(self, wx.ID_ANY)
 		self.grid = gridlib.Grid(self.panel)
+		sizer = wx.BoxSizer(wx.VERTICAL)
+		sizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
+		self.panel.SetSizer(sizer)
 		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
 		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
 		self.panel.GetSizer().Add(gridSizer, 0, wx.ALL|wx.EXPAND)
-		self.grid.CreateGrid(len(self.tag_info), 2)
 		self.grid.SetDefaultCellOverflow(False)
 		self.grid.SetColLabelValue(0, "Tag")
 		self.grid.SetColLabelValue(1, "Is Required")
-#TODO: FIX THIS
 
+		all_tags = sorted(set(config.tags_allowed + config.tags_required))
+		self.grid.CreateGrid(len(all_tags), 2)
+		self.grid.SetColLabelValue(0, "Tag")
+		self.grid.SetColLabelValue(1, "Required")
+		attr = gridlib.GridCellAttr()
+		attr.SetEditor(gridlib.GridCellBoolEditor())
+		attr.SetRenderer(gridlib.GridCellBoolRenderer())
+		self.grid.SetColAttr(1, attr)
+		row_num = 0
+		for tag in all_tags:
+			self.grid.SetCellValue(row_num, 0, tag)
+			cell_value = ""
+			if tag in config.tags_required:
+				cell_value = "1"
+			self.grid.SetCellValue(row_num, 1, cell_value)
+			row_num += 1
 		self.Bind(wx.EVT_CLOSE, self.OnClose)
  
-	def OnClose(self,e):
+	def OnApply(self, e):
+		tags_allowed = []
+		tags_required = []
+		errors = 0
+		for row_num in range(0, self.grid.GetNumberRows()):
+			tag = self.grid.GetCellValue(row_num, 0)
+			if len(tag) > 0:
+				prop = self.grid.GetCellValue(row_num, 1)
+				if tag in tags_allowed or tag in tags_required:
+					self.StatusBar.SetStatusText("Error: Duplicate tag %s" % (tag))
+					errors += 1
+				else:
+					if prop == '1':
+						tags_required.append(tag)
+					else:
+						tags_allowed.append(tag)
+		if errors == 0:
+			self.config.tags_allowed = tags_allowed
+			self.config.tags_required = tags_required
+			self.StatusBar.SetStatusText("Tag info is applied (but not saved)")
+		
+	def OnClose(self, e):
 		#TODO: Check if dirty
 		self.GetParent().tagsClosed()
 		self.Destroy()

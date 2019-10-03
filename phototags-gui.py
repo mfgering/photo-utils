@@ -304,6 +304,10 @@ class TagsFrame(wx.Frame):
 		toolbar.AddControl(self.saveButton)
 		self.saveButton.Bind(wx.EVT_BUTTON, self.OnSave)
 
+		self.addButton = wx.Button(toolbar, label="Add")
+		toolbar.AddControl(self.addButton)
+		self.addButton.Bind(wx.EVT_BUTTON, self.OnAdd)
+
 		toolbar.Realize()
 		self.CreateStatusBar()
 
@@ -319,7 +323,7 @@ class TagsFrame(wx.Frame):
 		self.grid.SetDefaultCellOverflow(False)
 		self.grid.SetColLabelValue(0, "Tag")
 		self.grid.SetColLabelValue(1, "Is Required")
-
+		self.grid.SetDefaultCellOverflow(False)
 		all_tags = sorted(set(config.tags_allowed + config.tags_required))
 		self.grid.CreateGrid(len(all_tags), 2)
 		self.grid.SetColLabelValue(0, "Tag")
@@ -337,7 +341,9 @@ class TagsFrame(wx.Frame):
 			self.grid.SetCellValue(row_num, 1, cell_value)
 			row_num += 1
 		self.Bind(wx.EVT_CLOSE, self.OnClose)
- 
+		self.grid.AutoSize()
+		self.panel.Layout()
+
 	def OnApply(self, e):
 		errors = self.apply2config()
 		if errors == 0:
@@ -372,7 +378,10 @@ class TagsFrame(wx.Frame):
 				self.config.save_config()
 		except Exception as exc:
 			logging.getLogger().exception(exc)
-		
+	
+	def OnAdd(self, e):
+		self.grid.AppendRows()
+
 	def OnClose(self, e):
 		#TODO: Check if dirty
 		self.GetParent().tagsClosed()

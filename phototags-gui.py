@@ -288,23 +288,21 @@ class LogFrame(wx.Frame):
 		self.Destroy()
 	
 class TagsFrame(wx.Frame):
-	def __init__(self, parent):
+	def __init__(self, parent, config):
 		wx.Frame.__init__(self, parent, wx.ID_ANY, "Tag Configuration")
+		self.config = config
  
 		# Add a panel so it looks the correct on all platforms
-		panel = wx.Panel(self, wx.ID_ANY)
-		log = wx.TextCtrl(panel, wx.ID_ANY, size=(300,100),
-						  style = wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
- 
-		# Add widgets to a sizer        
-		sizer = wx.BoxSizer(wx.VERTICAL)
-		sizer.Add(log, 1, wx.ALL|wx.EXPAND, 5)
-		panel.SetSizer(sizer)
- 
-		# redirect text here
-		redir=RedirectText(log, threading.current_thread().ident)
-		sys.stdout = redir
-		sys.stderr = redir
+		self.panel = wx.Panel(self, wx.ID_ANY)
+		self.grid = gridlib.Grid(self.panel)
+		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
+		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
+		self.panel.GetSizer().Add(gridSizer, 0, wx.ALL|wx.EXPAND)
+		self.grid.CreateGrid(len(self.tag_info), 2)
+		self.grid.SetDefaultCellOverflow(False)
+		self.grid.SetColLabelValue(0, "Tag")
+		self.grid.SetColLabelValue(1, "Is Required")
+#TODO: FIX THIS
 
 		self.Bind(wx.EVT_CLOSE, self.OnClose)
  

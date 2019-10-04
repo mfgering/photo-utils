@@ -344,6 +344,7 @@ class TagsFrame(wx.Frame):
 			self.grid.SetCellValue(row_num, 1, cell_value)
 			row_num += 1
 		self.Bind(wx.EVT_CLOSE, self.OnClose)
+		self.Bind(wx.grid.EVT_GRID_CELL_CHANGED, self.OnCellChanged)
 		self.grid.AutoSize()
 		self.panel.Layout()
 
@@ -384,6 +385,9 @@ class TagsFrame(wx.Frame):
 	
 	def OnAdd(self, e):
 		self.grid.AppendRows()
+
+	def OnCellChanged(self, e):
+		pass #TODO: FIX THIS
 
 	def OnClose(self, e):
 		#TODO: Check if dirty

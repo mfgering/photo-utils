@@ -44,8 +44,6 @@ class MainWindow(wx.Frame):
 		self.showMissingTagsButton.Disable()
 
 		toolbar.Realize()
-
-		#self.control = wx.TextCtrl(self, style=wx.TE_MULTILINE)
 		self.CreateStatusBar()
 
 		filemenu=wx.Menu()
@@ -320,10 +318,6 @@ class TagsFrame(wx.Frame):
 		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
 		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
 		self.panel.GetSizer().Add(gridSizer, 0, wx.ALL|wx.EXPAND)
-		#self.panel.SetSizer(sizer)
-		#gridSizer = wx.BoxSizer(wx.HORIZONTAL)
-		#gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
-		#self.panel.GetSizer().Add(gridSizer, 0, wx.ALL|wx.EXPAND)
 		self.grid.SetDefaultCellOverflow(False)
 		self.grid.SetColLabelValue(0, "Tag")
 		self.grid.SetColLabelValue(1, "Is Required")
@@ -388,14 +382,22 @@ class TagsFrame(wx.Frame):
 	
 	def OnAdd(self, e):
 		self.grid.AppendRows()
+		w, h = self.GetClientSize()
+		self.SetSize((w, h))
 
 	def OnCellChanged(self, e):
-		pass #TODO: FIX THIS
+		self.dirty = True
 
 	def OnClose(self, e):
-		#TODO: Check if dirty
-		self.GetParent().tagsClosed()
-		self.Destroy()
+		answer = wx.ID_YES
+		if self.dirty:
+			dlg = wx.MessageDialog(self, "The tags have been modified, but not saved. Close anyway?", 
+				caption="Unsaved Tag Configuration Changes",
+				style=wx.CANCEL|wx.YES_NO)
+			answer = dlg.ShowModal()
+		if answer == wx.ID_YES:
+			self.GetParent().tagsClosed()
+			self.Destroy()
 
 class RedirectText(object):
 	def __init__(self, aWxTextCtrl, guiThreadId):

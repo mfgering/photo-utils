@@ -293,7 +293,8 @@ class TagsFrame(wx.Frame):
 	def __init__(self, parent, config):
 		wx.Frame.__init__(self, parent, wx.ID_ANY, "Tag Configuration")
 		self.config = config
- 
+		self.dirty = False
+
 		toolbar = self.CreateToolBar()
 
 		self.applyButton = wx.Button(toolbar, label="Apply")
@@ -379,6 +380,8 @@ class TagsFrame(wx.Frame):
 			if errors == 0:
 				self.StatusBar.SetStatusText("Tag info is applied and saved")
 				self.config.save_config()
+				self.dirty = False
+
 		except Exception as exc:
 			logging.getLogger().exception(exc)
 	

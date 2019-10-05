@@ -209,13 +209,12 @@ def initArgParser():
 
 class PhotoTagsConfig(object):
 	def __init__(self):
-		self.config_parser = None
+		self.config_parser = configparser.ConfigParser()
 		self.config_ini = None
 		self.tags_required = []
 		self.tags_allowed = []
 
 	def read_config(self, config_ini="phototags.ini"):
-		self.config_parser = configparser.ConfigParser()
 		self.config_ini = config_ini
 		if os.path.isfile(config_ini):
 			self.config_parser.read(config_ini)
@@ -239,15 +238,16 @@ class PhotoTagsConfig(object):
 		return result
 
 	def save_config(self):
-		if not self.config_parser.has_section("Tags"):
-			raise PhotoTagsException("Config is missing a \"Tags\" section")
 		file = open(self.config_ini, "w")
+		if not self.config_parser.has_section("Tags"):
+			self.config_parser.add_section("Tags")
 		self.config_parser.set("Tags", "allowed", "\n".join(self.tags_allowed))
 		self.config_parser.set("Tags", "required", "\n".join(self.tags_required))
 		time_str = datetime.datetime.now().strftime("%H:%M%p on %B %d, %Y")
 		file.write("# This file was generated at %s\n\n" % (time_str))
 		self.config_parser.write(file, False)
 		file.close()
+		
 class PhotoTagsException(Exception):
 	pass
 

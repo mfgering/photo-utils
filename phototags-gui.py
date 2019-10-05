@@ -50,8 +50,8 @@ class MainWindow(wx.Frame):
 		target_id = wx.Window.NewControlId()
 		menuTarget = filemenu.Append(target_id, "&Target", "Target directory or file to process")
 		menuTags = filemenu.Append(wx.ID_ANY, "Tags", "Tag configuration")
-		menuLoad = filemenu.Append(wx.ID_ANY, "Load", "Load configuration")
-		menuSave = filemenu.Append(wx.ID_ANY, "Save", "Save configuration")
+		menuLoad = filemenu.Append(wx.ID_ANY, "Load From...", "Load configuration")
+		menuSave = filemenu.Append(wx.ID_ANY, "Save As...", "Save configuration")
 
 		menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
 
@@ -116,20 +116,39 @@ class MainWindow(wx.Frame):
 		self.tagsFrame.Show()
 
 	def OnLoad(self, e):
-		dlg = wx.FileDialog(self, message="Select a configuration file", name="config_picker")
-		dlg.ShowModal()
-		filename = dlg.GetPath()
-		new_config = phototags.PhotoTagsConfig()
-		try:
-			new_config.read_config(filename)
-			self.config = new_config
-			self.StatusBar.SetStatusText("Configuration loaded")
-		except Exception as exc:
-			self.StatusBar.SetStatusText("Error: "+str(exc))
-		pass #TODO: FIX THIS
+		self.load_save_config(True)
 
 	def OnSave(self, e):
-		pass #TODO: FIX THIS
+		self.load_save_config(False)
+
+	def load_save_config(self, do_load=True):
+		filename = "phototags.ini"
+		dirname = "."
+		if self.config is not None and self.config.config_ini is not None:
+			dirname, filename = os.path.split(self.config.config_ini)
+		if do_load:
+			style = wx.FD_OPEN|wx.FD_FILE_MUST_EXIST
+		else:
+			style = wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT
+		dlg = wx.FileDialog(self, message="Select a configuration file", 
+				defaultFile=filename, defaultDir=dirname,
+				style=style, name="config_picker")
+		dlg.ShowModal()
+		filename_full = dlg.GetPath()
+		new_config = phototags.PhotoTagsConfig()
+		try:
+			if do_load:
+				new_config.read_config(filename_full)
+				self.StatusBar.SetStatusText("Configuration loaded from "+filename_full)
+			else: # save
+				new_config.config_ini = filename_full
+				new_config.tags_allowed = self.config.tags_allowed
+				new_config.tags_required = self.config.tags_required
+				new_config.save_config()
+				self.StatusBar.SetStatusText("Configuration saved to "+filename_full)
+			self.config = new_config
+		except Exception as exc:
+			self.StatusBar.SetStatusText("Error: "+str(exc))
 
 	def OnAbout(self,e):
 		# A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets.

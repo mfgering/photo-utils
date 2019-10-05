@@ -50,6 +50,9 @@ class MainWindow(wx.Frame):
 		target_id = wx.Window.NewControlId()
 		menuTarget = filemenu.Append(target_id, "&Target", "Target directory or file to process")
 		menuTags = filemenu.Append(wx.ID_ANY, "Tags", "Tag configuration")
+		menuLoad = filemenu.Append(wx.ID_ANY, "Load", "Load configuration")
+		menuSave = filemenu.Append(wx.ID_ANY, "Save", "Save configuration")
+
 		menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
 
 		processMenu = wx.Menu()
@@ -73,6 +76,8 @@ class MainWindow(wx.Frame):
 		# Set events.
 		self.Bind(wx.EVT_MENU, self.OnTarget, menuTarget)
 		self.Bind(wx.EVT_MENU, self.OnTags, menuTags)
+		self.Bind(wx.EVT_MENU, self.OnLoad, menuLoad)
+		self.Bind(wx.EVT_MENU, self.OnSave, menuSave)
 		self.Bind(wx.EVT_MENU, self.OnProcess, menuProcess)
 		self.Bind(wx.EVT_MENU, self.OnStop, menuStop)
 		self.Bind(wx.EVT_MENU, self.OnAbout, menuAbout)
@@ -98,7 +103,7 @@ class MainWindow(wx.Frame):
 		self.args = parser.parse_args()
 
 	def OnTarget(self,e):
-		dlg = wx.DirDialog( self, message="Select a directory to process", name="target_picker")
+		dlg = wx.DirDialog(self, message="Select a directory to process", name="target_picker")
 		dlg.ShowModal()
 		self.target = dlg.GetPath()
 		self.args.target = self.target
@@ -109,6 +114,22 @@ class MainWindow(wx.Frame):
 		if self.tagsFrame is None:
 			self.tagsFrame = TagsFrame(self, self.config)
 		self.tagsFrame.Show()
+
+	def OnLoad(self, e):
+		dlg = wx.FileDialog(self, message="Select a configuration file", name="config_picker")
+		dlg.ShowModal()
+		filename = dlg.GetPath()
+		new_config = phototags.PhotoTagsConfig()
+		try:
+			new_config.read_config(filename)
+			self.config = new_config
+			self.StatusBar.SetStatusText("Configuration loaded")
+		except Exception as exc:
+			self.StatusBar.SetStatusText("Error: "+str(exc))
+		pass #TODO: FIX THIS
+
+	def OnSave(self, e):
+		pass #TODO: FIX THIS
 
 	def OnAbout(self,e):
 		# A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets.

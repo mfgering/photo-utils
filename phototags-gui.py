@@ -94,7 +94,7 @@ class MainWindow(wx.Frame):
 			self.tag_info = []
 			self.setButtonStates()
 		except Exception as exc:
-			self.GetStatusBar().SetStatusText("Error: "+str(exc.mess))
+			self.GetStatusBar().SetStatusText("Error: "+str(exc))
 		print("App starting")
 
 	def parseArgs(self):

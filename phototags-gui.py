@@ -5,7 +5,7 @@ import wx.grid as gridlib
 class MainWindow(wx.Frame):
 	def __init__(self, parent, title):
 		wx.Frame.__init__(self, parent, title=title, size=(600,400))
-		self.target = None
+		self.target = "."
 		self.workerThread = None
 		self.guiThreadId = threading.current_thread().ident
 		self.logFrame = LogFrame(self)
@@ -94,12 +94,12 @@ class MainWindow(wx.Frame):
 			self.tag_info = []
 			self.setButtonStates()
 		except Exception as exc:
-			self.GetStatusBar().SetStatusText("Error: "+str(exc))
+			self.GetStatusBar().SetStatusText("Error: "+str(exc.mess))
 		print("App starting")
 
 	def parseArgs(self):
 		parser = phototags.initArgParser()
-		parser.add_argument('--target', dest='targ_arg', help="File or directory to check")
+		parser.add_argument('--target', default=".", dest='targ_arg', help="File or directory to check")
 		self.args = parser.parse_args()
 
 	def OnTarget(self,e):

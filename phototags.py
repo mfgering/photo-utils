@@ -226,7 +226,7 @@ class PhotoTagsConfig(object):
 			else:
 				raise PhotoTagsException("Configuration is missing a [Tags] section")
 		else:
-			raise PhotoTagsException("Missing config file '%s'", config_ini)
+			raise PhotoTagsException("Missing config file '%s'" % (config_ini), config_ini)
 
 	def option2tags(self, option):
 		arr = option.split("\n")
@@ -247,7 +247,7 @@ class PhotoTagsConfig(object):
 		file.write("# This file was generated at %s\n\n" % (time_str))
 		self.config_parser.write(file, False)
 		file.close()
-		
+
 class PhotoTagsException(Exception):
 	pass
 

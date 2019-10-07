@@ -2,3 +2,5 @@
 *.pyc
 build/
 phototags.spec
+glade1.wxg.bak
+phototags-wxg.py.bak

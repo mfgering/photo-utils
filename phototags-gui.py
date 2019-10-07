@@ -13,6 +13,8 @@ class MainWindow(wx.Frame):
 		self.panel = wx.Panel(self, wx.ID_ANY)
 		panelSizer = wx.BoxSizer(wx.VERTICAL)
 		self.panel.SetSizer(panelSizer)
+		self.options_panel = OptionsPanel(self.panel)
+		self.panel.GetSizer().Add(self.options_panel.GetSizer())
 		self.grid = None
 		self.titleText = None
 
@@ -85,13 +87,14 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_MENU, self.OnLog, menuLog)
 		self.Show(True)
 		try:
-			self.parseArgs()
+			self.args = self.parseArgs()
 			self.target = self.args.targ_arg
 
 			self.config = phototags.PhotoTagsConfig()
 			self.config.read_config(self.args.config)
 
 			self.tag_info = []
+			self.options_panel.set_options(self.args)
 			self.setButtonStates()
 		except Exception as exc:
 			self.GetStatusBar().SetStatusText("Error: "+str(exc))
@@ -100,7 +103,7 @@ class MainWindow(wx.Frame):
 	def parseArgs(self):
 		parser = phototags.initArgParser()
 		parser.add_argument('--target', default=".", dest='targ_arg', help="File or directory to check")
-		self.args = parser.parse_args()
+		return parser.parse_args()
 
 	def OnTarget(self,e):
 		dlg = wx.DirDialog(self, message="Select a directory to process", name="target_picker")
@@ -450,6 +453,34 @@ class RedirectText(object):
 			self.out.WriteText(string)
 		else:
 			wx.CallAfter(self.out.WriteText, string)
+
+class OptionsPanel(wx.Panel):
+	opts = [
+		("Check allowed", "Check that each tag is allowed (or required)", "check_allowed"),
+		("Check required", "Check for required tags", "check_required"),
+	]
+
+	def __init__(self, parent):
+		super().__init__(parent, style=wx.EXPAND)
+		self.SetBackgroundColour('red')
+		self.args = None
+		panelSizer = wx.BoxSizer(wx.VERTICAL)
+		self.SetSizer(panelSizer)
+
+	def set_options(self, args):
+		self.args = args
+		for opt in self.opts:
+			val = getattr(args, opt[2])
+			if type(val) == bool:
+				widget = wx.CheckBox(self, wx.ID_ANY, opt[0])
+			widget.opt_name = opt[2]
+			sizer = wx.BoxSizer(wx.HORIZONTAL)
+			widget.SetSizer(sizer)
+			self.GetSizer().Add(sizer, 1, wx.ALL|wx.EXPAND)
+		self.GetSizer().Layout()
+
+	def update(self):
+		pass
 
 class PhotoTagsThread(threading.Thread):
 	def __init__(self, callback, args, target, config):

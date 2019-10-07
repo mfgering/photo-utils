@@ -76,15 +76,17 @@ class MainWindow(wx.Frame):
 		self.notebook_1_Frequency = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1.AddPage(self.notebook_1_Frequency, "Frequency")
 		
-		self.notebook_1_Logs = wx.Panel(self.notebook_1, wx.ID_ANY)
-		self.notebook_1.AddPage(self.notebook_1_Logs, "Logs")
+		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
+		self.notebook_1_logs.Enable(False)
+		self.notebook_1_logs.SetScrollRate(10, 10)
+		self.notebook_1.AddPage(self.notebook_1_logs, "Logs")
 		
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		
-		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_Logs, wx.ID_ANY, "")
-		sizer_1.Add(self.log_text_ctrl, 0, 0, 0)
+		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.HSCROLL | wx.TE_MULTILINE | wx.TE_READONLY)
+		sizer_1.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 0)
 		
-		self.notebook_1_Logs.SetSizer(sizer_1)
+		self.notebook_1_logs.SetSizer(sizer_1)
 		
 		self.options_page.SetSizer(sizer_3)
 		
@@ -96,10 +98,10 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_revert_options, self.revert_options_button)
 		# end wxGlade
 		try:
-			self
+			sys.out = self.log_text_ctrl
+			sys.err = self.log_text_ctrl
 			self.args = self.parseArgs()
 			self.target = self.args.targ_arg
-
 			self.config = phototags.PhotoTagsConfig()
 			self.config.read_config(self.args.config)
 

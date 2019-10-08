@@ -4,6 +4,16 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "glade",
+      "type": "shell",
+      "command": "python ${config:glade.location}/wxglade.py ${workspaceRoot}/glade1.wxg",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "build phototags executable",
       "type": "shell",
       "command": "pyinstaller -F phototags.py",

@@ -20,7 +20,7 @@ class MainWindow(wx.Frame):
 		# begin wxGlade: MainWindow.__init__
 		kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
 		wx.Frame.__init__(self, *args, **kwds)
-		self.SetSize((723, 609))
+		self.SetSize((694, 609))
 		self.SetTitle("frame")
 		
 		self.frame_statusbar = self.CreateStatusBar(1)
@@ -41,27 +41,65 @@ class MainWindow(wx.Frame):
 		
 		sizer_3 = wx.BoxSizer(wx.VERTICAL)
 		
-		self.checkbox_1 = wx.CheckBox(self.options_page, wx.ID_ANY, "Check allowed")
-		self.checkbox_1.SetValue(1)
-		sizer_3.Add(self.checkbox_1, 0, 0, 0)
+		self.checkbox_check_allowed = wx.CheckBox(self.options_page, wx.ID_ANY, "Check allowed")
+		self.checkbox_check_allowed.SetValue(1)
+		self.checkbox_check_allowed.arg_name = "check_allowed"
+		sizer_3.Add(self.checkbox_check_allowed, 0, wx.LEFT, 15)
 		
-		self.checkbox_2 = wx.CheckBox(self.options_page, wx.ID_ANY, "Check required")
-		self.checkbox_2.SetValue(1)
-		sizer_3.Add(self.checkbox_2, 0, 0, 0)
+		self.checkbox_check_required = wx.CheckBox(self.options_page, wx.ID_ANY, "Check required")
+		self.checkbox_check_required.SetValue(1)
+		self.checkbox_check_required.arg_name = "check_required"
+		sizer_3.Add(self.checkbox_check_required, 0, wx.LEFT, 15)
 		
-		self.checkbox_3 = wx.CheckBox(self.options_page, wx.ID_ANY, "Check frequency")
-		sizer_3.Add(self.checkbox_3, 0, 0, 0)
+		self.checkbox_check_frequency = wx.CheckBox(self.options_page, wx.ID_ANY, "Check frequency")
+		self.checkbox_check_frequency.arg_name = "frequency"
+		sizer_3.Add(self.checkbox_check_frequency, 0, wx.LEFT, 15)
+		
+		self.checkbox_file_tags = wx.CheckBox(self.options_page, wx.ID_ANY, "File tags")
+		self.checkbox_file_tags.SetValue(1)
+		self.checkbox_file_tags.arg_name = "print_file_tags"
+		sizer_3.Add(self.checkbox_file_tags, 0, wx.LEFT, 15)
+		
+		sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_3.Add(sizer_5, 0, wx.LEFT, 15)
+		
+		self.text_ctrl_max_files = wx.TextCtrl(self.options_page, wx.ID_ANY, "", style=wx.TE_PROCESS_ENTER | wx.TE_PROCESS_TAB)
+		self.text_ctrl_max_files.SetToolTip("Maximum number of files to process (or 'All')")
+		self.text_ctrl_max_files.arg_name = "max_files"
+		sizer_5.Add(self.text_ctrl_max_files, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+		
+		static_text_max_files = wx.StaticText(self.options_page, wx.ID_ANY, "Max files")
+		sizer_5.Add(static_text_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
+		
+		sizer_6 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Target"), wx.HORIZONTAL)
+		sizer_3.Add(sizer_6, 0, wx.EXPAND | wx.LEFT, 15)
+		
+		self.text_ctrl_target = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
+		self.text_ctrl_target.arg_name = "targ_arg"
+		sizer_6.Add(self.text_ctrl_target, 1, wx.EXPAND, 0)
+		
+		self.button_select_target = wx.Button(self.options_page, wx.ID_ANY, "Select")
+		sizer_6.Add(self.button_select_target, 0, wx.LEFT, 15)
 		
 		sizer_3.Add((20, 20), 0, 0, 0)
 		
 		sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer_3.Add(sizer_4, 1, wx.EXPAND, 0)
+		sizer_3.Add(sizer_4, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
 		
 		self.apply_options_button = wx.Button(self.options_page, wx.ID_ANY, "Apply")
-		sizer_4.Add(self.apply_options_button, 0, 0, 0)
+		sizer_4.Add(self.apply_options_button, 0, wx.RIGHT, 10)
 		
 		self.revert_options_button = wx.Button(self.options_page, wx.ID_ANY, "Revert")
-		sizer_4.Add(self.revert_options_button, 0, 0, 0)
+		sizer_4.Add(self.revert_options_button, 0, wx.RIGHT, 10)
+		
+		sizer_7 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_3.Add(sizer_7, 0, wx.LEFT, 15)
+		
+		self.button_start = wx.Button(self.options_page, wx.ID_ANY, "Start")
+		sizer_7.Add(self.button_start, 0, wx.RIGHT, 10)
+		
+		self.button_stop = wx.Button(self.options_page, wx.ID_ANY, "Stop")
+		sizer_7.Add(self.button_stop, 0, 0, 0)
 		
 		self.notebook_1_Tags = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1_Tags.SetToolTip("Show tags used by individual files")
@@ -76,15 +114,17 @@ class MainWindow(wx.Frame):
 		self.notebook_1_Frequency = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1.AddPage(self.notebook_1_Frequency, "Frequency")
 		
-		self.notebook_1_Logs = wx.Panel(self.notebook_1, wx.ID_ANY)
-		self.notebook_1.AddPage(self.notebook_1_Logs, "Logs")
+		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
+		self.notebook_1_logs.Enable(False)
+		self.notebook_1_logs.SetScrollRate(10, 10)
+		self.notebook_1.AddPage(self.notebook_1_logs, "Logs")
 		
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		
-		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_Logs, wx.ID_ANY, "")
+		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "")
 		sizer_1.Add(self.log_text_ctrl, 0, 0, 0)
 		
-		self.notebook_1_Logs.SetSizer(sizer_1)
+		self.notebook_1_logs.SetSizer(sizer_1)
 		
 		self.options_page.SetSizer(sizer_3)
 		
@@ -92,12 +132,20 @@ class MainWindow(wx.Frame):
 		
 		self.Layout()
 
+		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_check_allowed)
+		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_check_required)
+		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_check_frequency)
+		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_file_tags)
+		self.Bind(wx.EVT_TEXT_ENTER, self.on_options_event, self.text_ctrl_max_files)
 		self.Bind(wx.EVT_BUTTON, self.on_apply_options, self.apply_options_button)
 		self.Bind(wx.EVT_BUTTON, self.on_revert_options, self.revert_options_button)
+		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
+		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		# end wxGlade
 		try:
 			self
 			self.args = self.parseArgs()
+			self.update_options()
 			self.target = self.args.targ_arg
 
 			self.config = phototags.PhotoTagsConfig()
@@ -135,11 +183,52 @@ class MainWindow(wx.Frame):
 		return parser.parse_args()
 
 	def on_apply_options(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_apply_options' not implemented!")
-		event.Skip()
+		page = self.options_page.GetChildren()
+		for i in page:
+			if hasattr(i, "arg_name"):
+				arg_name = getattr(i, "arg_name")
+				if arg_name == "max_files":
+					val = -1
+					val_str = i.GetValue().strip()
+					if len(val_str) > 0 and val_str.lower() != "all":
+						try:
+							val = int(val_str)
+						except Exception as exc:
+							logging.getLogger().exception(exc)
+							i.SetValue("All")
+					setattr(self.args, arg_name,val)
+				else:
+					setattr(self.args, arg_name, bool(i.GetValue()))
+		self.apply_options_button.Enable(False)
+		self.revert_options_button.Enable(False)
 
 	def on_revert_options(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_revert_options' not implemented!")
+		self.update_options()
+		
+	def on_options_event(self, event):  # wxGlade: MainWindow.<event_handler>
+		self.apply_options_button.Enable(True)
+		self.revert_options_button.Enable(True)
+
+	def update_options(self):
+		page = self.options_page.GetChildren()
+		for i in page:
+			if hasattr(i, "arg_name"):
+				arg_name = getattr(i, "arg_name")
+				arg_value = getattr(self.args, arg_name)
+				if arg_name == "max_files":
+					str_value = str(arg_value)
+					if arg_value < 0:
+						str_value = "All"
+					i.SetValue(str_value)
+				else:
+					i.SetValue(arg_value)
+		self.apply_options_button.Enable(False)
+		self.revert_options_button.Enable(False)
+	def on_start_button(self, event):  # wxGlade: MainWindow.<event_handler>
+		print("Event handler 'on_start_button' not implemented!")
+		event.Skip()
+	def on_stop_button(self, event):  # wxGlade: MainWindow.<event_handler>
+		print("Event handler 'on_stop_button' not implemented!")
 		event.Skip()
 # end of class MainWindow
 

@@ -98,8 +98,11 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_revert_options, self.revert_options_button)
 		# end wxGlade
 		try:
-			sys.out = self.log_text_ctrl
-			sys.err = self.log_text_ctrl
+			# redirect text here
+			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
+			sys.stdout = redir
+			sys.stderr = redir
+			
 			self.args = self.parseArgs()
 			self.target = self.args.targ_arg
 			self.config = phototags.PhotoTagsConfig()
@@ -152,7 +155,6 @@ class Phototags(wx.App):
 		self.frame.Show()
 		return True
 
-# end of class Phototags
 
 class PhotoTagsThread(threading.Thread):
 	def __init__(self, callback, args, target, config):
@@ -176,6 +178,20 @@ class PhotoTagsThread(threading.Thread):
 	def stop(self):
 		self.photo_tags.stop_processing()
 		self.stopping = True
+
+# end of class Phototags
+
+class RedirectText(object):
+	def __init__(self, aWxTextCtrl, guiThreadId):
+		self.out=aWxTextCtrl
+		self.guiThreadId = guiThreadId
+
+	def write(self, string):
+		threadId = threading.current_thread().ident
+		if self.guiThreadId == threadId:
+			self.out.WriteText(string)
+		else:
+			wx.CallAfter(self.out.WriteText, string)
 
 if __name__ == "__main__":
 	myApp = Phototags(0)

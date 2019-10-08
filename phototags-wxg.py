@@ -121,8 +121,8 @@ class MainWindow(wx.Frame):
 		
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		
-		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "")
-		sizer_1.Add(self.log_text_ctrl, 0, 0, 0)
+		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.HSCROLL | wx.TE_MULTILINE | wx.TE_READONLY)
+		sizer_1.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 0)
 		
 		self.notebook_1_logs.SetSizer(sizer_1)
 		
@@ -143,11 +143,14 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		# end wxGlade
 		try:
-			self
+			# redirect text here
+			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
+			sys.stdout = redir
+			sys.stderr = redir
+			
 			self.args = self.parseArgs()
 			self.update_options()
 			self.target = self.args.targ_arg
-
 			self.config = phototags.PhotoTagsConfig()
 			self.config.read_config(self.args.config)
 
@@ -239,7 +242,6 @@ class Phototags(wx.App):
 		self.frame.Show()
 		return True
 
-# end of class Phototags
 
 class PhotoTagsThread(threading.Thread):
 	def __init__(self, callback, args, target, config):
@@ -263,6 +265,20 @@ class PhotoTagsThread(threading.Thread):
 	def stop(self):
 		self.photo_tags.stop_processing()
 		self.stopping = True
+
+# end of class Phototags
+
+class RedirectText(object):
+	def __init__(self, aWxTextCtrl, guiThreadId):
+		self.out=aWxTextCtrl
+		self.guiThreadId = guiThreadId
+
+	def write(self, string):
+		threadId = threading.current_thread().ident
+		if self.guiThreadId == threadId:
+			self.out.WriteText(string)
+		else:
+			wx.CallAfter(self.out.WriteText, string)
 
 if __name__ == "__main__":
 	myApp = Phototags(0)

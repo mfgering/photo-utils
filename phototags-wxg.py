@@ -22,6 +22,9 @@ class MainWindow(wx.Frame):
 		wx.Frame.__init__(self, *args, **kwds)
 		self.SetSize((694, 609))
 		self.SetTitle("Phototags")
+		_icon = wx.NullIcon
+		_icon.CopyFromBitmap(wx.Bitmap("C:\\Users\\mgering\\photo-utils\\app-icon.jpg", wx.BITMAP_TYPE_ANY))
+		self.SetIcon(_icon)
 		
 		self.frame_statusbar = self.CreateStatusBar(1)
 		self.frame_statusbar.SetStatusWidths([-1])
@@ -87,9 +90,11 @@ class MainWindow(wx.Frame):
 		sizer_3.Add(sizer_4, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
 		
 		self.apply_options_button = wx.Button(self.options_page, wx.ID_ANY, "Apply")
+		self.apply_options_button.Enable(False)
 		sizer_4.Add(self.apply_options_button, 0, wx.RIGHT, 10)
 		
 		self.revert_options_button = wx.Button(self.options_page, wx.ID_ANY, "Revert")
+		self.revert_options_button.Enable(False)
 		sizer_4.Add(self.revert_options_button, 0, wx.RIGHT, 10)
 		
 		sizer_7 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Processing"), wx.HORIZONTAL)
@@ -99,11 +104,25 @@ class MainWindow(wx.Frame):
 		sizer_7.Add(self.button_start, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 10)
 		
 		self.button_stop = wx.Button(self.options_page, wx.ID_ANY, "Stop")
+		self.button_stop.Enable(False)
 		sizer_7.Add(self.button_stop, 0, wx.RIGHT | wx.TOP, 10)
 		
 		self.notebook_1_Tags = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1_Tags.SetToolTip("Show tags used by individual files")
 		self.notebook_1.AddPage(self.notebook_1_Tags, "Tags")
+		
+		sizer_8 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.static_text_tags_header = wx.StaticText(self.notebook_1_Tags, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
+		self.static_text_tags_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+		sizer_8.Add(self.static_text_tags_header, 0, wx.ALL, 15)
+		
+		self.grid_tags = wx.grid.Grid(self.notebook_1_Tags, wx.ID_ANY, size=(1, 1))
+		self.grid_tags.CreateGrid(10, 2)
+		self.grid_tags.SetSelectionMode(wx.grid.Grid.SelectRows)
+		self.grid_tags.SetColLabelValue(0, "Filename")
+		self.grid_tags.SetColLabelValue(1, "All Tags")
+		sizer_8.Add(self.grid_tags, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_Missing = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1.AddPage(self.notebook_1_Missing, "Missing")
@@ -126,6 +145,8 @@ class MainWindow(wx.Frame):
 		
 		self.notebook_1_logs.SetSizer(sizer_1)
 		
+		self.notebook_1_Tags.SetSizer(sizer_8)
+		
 		self.options_page.SetSizer(sizer_3)
 		
 		self.SetSizer(sizer_2)
@@ -136,7 +157,8 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_check_required)
 		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_check_frequency)
 		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_file_tags)
-		self.Bind(wx.EVT_TEXT_ENTER, self.on_options_event, self.text_ctrl_max_files)
+		self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_max_files)
+		self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_target)
 		self.Bind(wx.EVT_BUTTON, self.on_apply_options, self.apply_options_button)
 		self.Bind(wx.EVT_BUTTON, self.on_revert_options, self.revert_options_button)
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
@@ -153,10 +175,8 @@ class MainWindow(wx.Frame):
 			self.update_options()
 			self.config = phototags.PhotoTagsConfig()
 			self.config.read_config(self.args.config)
-
-			self.tag_info = []
-			#self.options_panel.set_options(self.args)
-			#self.setButtonStates()
+			self.reset_results()
+			self.set_button_states()
 		except Exception as exc:
 			self.GetStatusBar().SetStatusText("Error: "+str(exc))
 		print("App starting")
@@ -185,32 +205,69 @@ class MainWindow(wx.Frame):
 		parser.add_argument('--target', default=".", dest='targ_arg', help="File or directory to check")
 		return parser.parse_args()
 
+	def options_ok(self):
+		return self.max_files_ok() and self.target_ok()
+
+	def lose_focus_max_files(self):
+		pass
+
+	def max_files_ok(self):
+		val_str = self.text_ctrl_max_files.GetValue().strip()
+		if len(val_str) > 0 and val_str.lower() != "all":
+			try:
+				val = int(val_str)
+			except Exception as exc:
+				return False
+		return True
+
+	def target_ok(self):
+		target = self.text_ctrl_target.GetValue().strip()
+		return os.path.isdir(target) or os.path.isfile(target)
+
 	def on_apply_options(self, event):  # wxGlade: MainWindow.<event_handler>
 		page = self.options_page.GetChildren()
-		for i in page:
-			if hasattr(i, "arg_name"):
-				arg_name = getattr(i, "arg_name")
-				if arg_name == "max_files":
-					val = -1
-					val_str = i.GetValue().strip()
-					if len(val_str) > 0 and val_str.lower() != "all":
-						try:
+		option_controls = [c for c in self.options_page.GetChildren() if hasattr(c, "arg_name")]
+		# Check validity of some fields
+		errors = 0
+		for i in option_controls:
+			arg_name = getattr(i, "arg_name")
+			if arg_name == "max_files":
+				if not self.max_files_ok():
+					val_str = i.GetValue()
+					msg = wx.MessageDialog(self, "Illegal value \"%s\". Use \"All\" or a positive number." % (val_str), "Max Files Error")
+					msg.ShowModal()
+					errors += 1
+			elif arg_name == "targ_arg":
+				val_str = i.GetValue().strip()
+				if not self.target_ok():
+					msg = wx.MessageDialog(self, "\"%s\" is not a file or directory." % (val_str), "Target Error")
+					msg.ShowModal()
+					errors += 1
+		# If no errors then apply the control values to the args object
+		if errors == 0:
+			for i in option_controls:
+				if hasattr(i, "arg_name"):
+					arg_name = getattr(i, "arg_name")
+					if arg_name == "max_files":
+						val = -1
+						val_str = i.GetValue().strip()
+						if len(val_str) > 0 and val_str.lower() != "all":
 							val = int(val_str)
-						except Exception as exc:
-							logging.getLogger().exception(exc)
-							i.SetValue("All")
-					setattr(self.args, arg_name,val)
-				else:
-					setattr(self.args, arg_name, bool(i.GetValue()))
-		self.apply_options_button.Enable(False)
-		self.revert_options_button.Enable(False)
+						setattr(self.args, arg_name, val)
+					elif arg_name == "targ_arg":
+						self.args.targ_arg = i.GetValue().strip()
+					else:
+						setattr(self.args, arg_name, bool(i.GetValue()))
+			self.options_modified = False
+			self.set_button_states()
 
 	def on_revert_options(self, event):  # wxGlade: MainWindow.<event_handler>
 		self.update_options()
+		self.options_modified = False
 		
 	def on_options_event(self, event):  # wxGlade: MainWindow.<event_handler>
-		self.apply_options_button.Enable(True)
-		self.revert_options_button.Enable(True)
+		self.options_modified = True
+		self.set_button_states()
 
 	def update_options(self):
 		page = self.options_page.GetChildren()
@@ -222,30 +279,69 @@ class MainWindow(wx.Frame):
 					str_value = str(arg_value)
 					if arg_value < 0:
 						str_value = "All"
-					i.SetValue(str_value)
+					i.ChangeValue(str_value)
+				elif isinstance(i, wx.TextCtrl):
+					i.ChangeValue(arg_value)
 				else:
 					i.SetValue(arg_value)
-		self.apply_options_button.Enable(False)
-		self.revert_options_button.Enable(False)
+		self.options_modified = False
 
 	def on_start_button(self, event):  # wxGlade: MainWindow.<event_handler>
-		if os.path.isdir(self.args.targ_arg) or os.path.isfile(self.args.targ_arg):
-			self.fileCount = 0
-			self.filename = None
-			self.tag_info = []
-			self.StatusBar.SetStatusText("Starting to process images...")
-			self.reset_results()
-			self.workerThread = PhotoTagsThread(self.processCallback, self.args, self.args.targ_arg, self.config)
-			self.workerThread.start()
-		else:
-			self.StatusBar.SetStatusText("ERROR: Target '%s' is not a file or directory"%(self.args.targ_arg))
+		self.StatusBar.SetStatusText("Starting to process images...")
+		self.reset_results()
+		self.workerThread = PhotoTagsThread(self.processCallback, self.args, self.args.targ_arg, self.config)
+		self.workerThread.start()
 
 	def reset_results(self):
+		self.tag_info = []
+		self.fileCount = 0
+		self.filename = None
+		self.static_text_tags_header.SetLabelText("No results yet")
+		self.grid_tags.Hide()
 		#Reset tag info
 		#Reset missing info
 		#Reset disallowed info
 		#Reset Frequency info
 		pass #TODO: FIX THIS
+
+	def set_button_states(self):
+		options_ok = self.options_ok()
+		apply_revert = self.options_modified
+		start = options_ok and not self.options_modified and \
+				(self.workerThread is None or \
+				self.workerThread.done)
+		stop = self.workerThread is not None and \
+				not self.workerThread.done
+
+		self.apply_options_button.Enable(apply_revert)
+		self.revert_options_button.Enable(apply_revert)
+		self.button_start.Enable(start)
+		self.button_stop.Enable(stop)
+
+	def update_results(self):
+		self.update_tag_page()
+		pass #TODO: FIX THIS
+
+	def update_tag_page(self):
+		if self.options_modified:
+			self.static_text_tags_header.SetLabelText("Options were modified; results are not valid.")
+			self.grid_tags.Hide()
+		elif not self.args.print_file_tags:
+			self.static_text_tags_header.SetLabelText("Options did not include \"file tags\"")
+			self.grid_tags.Hide()
+		else:
+			row_num = 0
+			for row in self.tag_info:
+				self.grid_tags.SetCellValue(row_num, 0, row[0])
+				self.grid_tags.SetCellValue(row_num, 1, ", ".join(row[1]))
+				attr = gridlib.GridCellAttr()
+				attr.SetReadOnly(True)
+				self.grid_tags.SetRowAttr(row_num, attr)
+				row_num += 1
+			self.static_text_tags_header.SetLabelText("Tags Per File")
+			self.grid_tags.Show()
+
+
 
 	def processCallback(self, callbackName, callbackData):
 		if callbackName == "tags":
@@ -261,7 +357,7 @@ class MainWindow(wx.Frame):
 				status = "Stopped"
 			self.StatusBar.SetStatusText("Files: %s; %s - total errors: %s" % (self.fileCount, status, self.errorCount))
 			self.workerThread.done = True
-			self.setButtonStates()
+			self.update_results()
 		else:
 			logging.getLogger().error("Unknown callback name %s", callbackName)
 			self.StatusBar.SetStatusText("Error: Unknown callback name %s" % (callbackName))

@@ -21,7 +21,7 @@ class MainWindow(wx.Frame):
 		kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
 		wx.Frame.__init__(self, *args, **kwds)
 		self.SetSize((694, 609))
-		self.SetTitle("frame")
+		self.SetTitle("Phototags")
 		
 		self.frame_statusbar = self.CreateStatusBar(1)
 		self.frame_statusbar.SetStatusWidths([-1])
@@ -32,7 +32,7 @@ class MainWindow(wx.Frame):
 		
 		sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
 		
-		self.notebook_1 = wx.Notebook(self, wx.ID_ANY, style=wx.NB_LEFT)
+		self.notebook_1 = wx.Notebook(self, wx.ID_ANY, style=wx.NB_BOTTOM)
 		sizer_2.Add(self.notebook_1, 1, wx.EXPAND, 0)
 		
 		self.options_page = wx.Panel(self.notebook_1, wx.ID_ANY)
@@ -72,7 +72,7 @@ class MainWindow(wx.Frame):
 		sizer_5.Add(static_text_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
 		
 		sizer_6 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Target"), wx.HORIZONTAL)
-		sizer_3.Add(sizer_6, 0, wx.EXPAND | wx.LEFT, 15)
+		sizer_3.Add(sizer_6, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
 		
 		self.text_ctrl_target = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
 		self.text_ctrl_target.arg_name = "targ_arg"
@@ -84,7 +84,7 @@ class MainWindow(wx.Frame):
 		sizer_3.Add((20, 20), 0, 0, 0)
 		
 		sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer_3.Add(sizer_4, 1, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
+		sizer_3.Add(sizer_4, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
 		
 		self.apply_options_button = wx.Button(self.options_page, wx.ID_ANY, "Apply")
 		sizer_4.Add(self.apply_options_button, 0, wx.RIGHT, 10)
@@ -92,14 +92,14 @@ class MainWindow(wx.Frame):
 		self.revert_options_button = wx.Button(self.options_page, wx.ID_ANY, "Revert")
 		sizer_4.Add(self.revert_options_button, 0, wx.RIGHT, 10)
 		
-		sizer_7 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer_3.Add(sizer_7, 0, wx.LEFT, 15)
+		sizer_7 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Processing"), wx.HORIZONTAL)
+		sizer_3.Add(sizer_7, 0, wx.LEFT | wx.TOP, 15)
 		
 		self.button_start = wx.Button(self.options_page, wx.ID_ANY, "Start")
-		sizer_7.Add(self.button_start, 0, wx.RIGHT, 10)
+		sizer_7.Add(self.button_start, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 10)
 		
 		self.button_stop = wx.Button(self.options_page, wx.ID_ANY, "Stop")
-		sizer_7.Add(self.button_stop, 0, 0, 0)
+		sizer_7.Add(self.button_stop, 0, wx.RIGHT | wx.TOP, 10)
 		
 		self.notebook_1_Tags = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1_Tags.SetToolTip("Show tags used by individual files")
@@ -121,8 +121,8 @@ class MainWindow(wx.Frame):
 		
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		
-		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.HSCROLL | wx.TE_MULTILINE | wx.TE_READONLY)
-		sizer_1.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 0)
+		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.TE_MULTILINE | wx.TE_READONLY)
+		sizer_1.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_logs.SetSizer(sizer_1)
 		
@@ -147,10 +147,10 @@ class MainWindow(wx.Frame):
 			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
 			sys.stdout = redir
 			sys.stderr = redir
-			
+			self.workerThread = None
+			self.guiThreadId = threading.current_thread().ident
 			self.args = self.parseArgs()
 			self.update_options()
-			self.target = self.args.targ_arg
 			self.config = phototags.PhotoTagsConfig()
 			self.config.read_config(self.args.config)
 
@@ -227,9 +227,45 @@ class MainWindow(wx.Frame):
 					i.SetValue(arg_value)
 		self.apply_options_button.Enable(False)
 		self.revert_options_button.Enable(False)
+
 	def on_start_button(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_start_button' not implemented!")
-		event.Skip()
+		if os.path.isdir(self.args.targ_arg) or os.path.isfile(self.args.targ_arg):
+			self.fileCount = 0
+			self.filename = None
+			self.tag_info = []
+			self.StatusBar.SetStatusText("Starting to process images...")
+			self.reset_results()
+			self.workerThread = PhotoTagsThread(self.processCallback, self.args, self.args.targ_arg, self.config)
+			self.workerThread.start()
+		else:
+			self.StatusBar.SetStatusText("ERROR: Target '%s' is not a file or directory"%(self.args.targ_arg))
+
+	def reset_results(self):
+		#Reset tag info
+		#Reset missing info
+		#Reset disallowed info
+		#Reset Frequency info
+		pass #TODO: FIX THIS
+
+	def processCallback(self, callbackName, callbackData):
+		if callbackName == "tags":
+			self.fileCount += 1
+			filename = callbackData["filename"]
+			tags = callbackData["tags"]
+			self.tag_info.append((filename, tags, callbackData["missingTags"], callbackData["badTags"]))
+			self.StatusBar.SetStatusText("%s: %s: %s" % (self.fileCount, filename, ", ".join(tags)))
+		elif callbackName == "done":
+			self.errorCount = callbackData["errorCount"]
+			status = "Done"
+			if callbackData["wasStopped"]:
+				status = "Stopped"
+			self.StatusBar.SetStatusText("Files: %s; %s - total errors: %s" % (self.fileCount, status, self.errorCount))
+			self.workerThread.done = True
+			self.setButtonStates()
+		else:
+			logging.getLogger().error("Unknown callback name %s", callbackName)
+			self.StatusBar.SetStatusText("Error: Unknown callback name %s" % (callbackName))
+
 	def on_stop_button(self, event):  # wxGlade: MainWindow.<event_handler>
 		print("Event handler 'on_stop_button' not implemented!")
 		event.Skip()

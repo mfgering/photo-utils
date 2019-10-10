@@ -9,7 +9,7 @@
       "command": "python ${config:glade.location}/wxglade.py ${workspaceRoot}/glade1.wxg",
       "group": {
         "kind": "build",
-        "isDefault": false
+        "isDefault": true
       },
       "problemMatcher": []
     },

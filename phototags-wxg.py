@@ -36,7 +36,7 @@ class MainWindow(wx.Frame):
 		sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
 		
 		self.notebook_1 = wx.Notebook(self, wx.ID_ANY, style=wx.NB_BOTTOM)
-		sizer_2.Add(self.notebook_1, 1, wx.EXPAND, 0)
+		sizer_2.Add(self.notebook_1, 1, wx.ALL | wx.EXPAND, 5)
 		
 		self.options_page = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.options_page.SetToolTip("Show/edit processing options")
@@ -44,38 +44,44 @@ class MainWindow(wx.Frame):
 		
 		sizer_3 = wx.BoxSizer(wx.VERTICAL)
 		
-		self.checkbox_check_allowed = wx.CheckBox(self.options_page, wx.ID_ANY, "Check allowed")
-		self.checkbox_check_allowed.SetValue(1)
-		self.checkbox_check_allowed.arg_name = "check_allowed"
-		sizer_3.Add(self.checkbox_check_allowed, 0, wx.LEFT, 15)
+		sizer_10 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Options"), wx.VERTICAL)
+		sizer_3.Add(sizer_10, 0, wx.ALL | wx.EXPAND, 15)
 		
-		self.checkbox_check_required = wx.CheckBox(self.options_page, wx.ID_ANY, "Check required")
-		self.checkbox_check_required.SetValue(1)
-		self.checkbox_check_required.arg_name = "check_required"
-		sizer_3.Add(self.checkbox_check_required, 0, wx.LEFT, 15)
-		
-		self.checkbox_check_frequency = wx.CheckBox(self.options_page, wx.ID_ANY, "Check frequency")
-		self.checkbox_check_frequency.arg_name = "frequency"
-		sizer_3.Add(self.checkbox_check_frequency, 0, wx.LEFT, 15)
+		sizer_11 = wx.BoxSizer(wx.VERTICAL)
+		sizer_10.Add(sizer_11, 1, wx.EXPAND | wx.LEFT, 15)
 		
 		self.checkbox_file_tags = wx.CheckBox(self.options_page, wx.ID_ANY, "File tags")
 		self.checkbox_file_tags.SetValue(1)
 		self.checkbox_file_tags.arg_name = "print_file_tags"
-		sizer_3.Add(self.checkbox_file_tags, 0, wx.LEFT, 15)
+		sizer_11.Add(self.checkbox_file_tags, 0, wx.TOP, 5)
+		
+		self.checkbox_check_allowed = wx.CheckBox(self.options_page, wx.ID_ANY, "Check allowed")
+		self.checkbox_check_allowed.SetValue(1)
+		self.checkbox_check_allowed.arg_name = "check_allowed"
+		sizer_11.Add(self.checkbox_check_allowed, 0, wx.TOP, 5)
+		
+		self.checkbox_check_required = wx.CheckBox(self.options_page, wx.ID_ANY, "Check required")
+		self.checkbox_check_required.SetValue(1)
+		self.checkbox_check_required.arg_name = "check_required"
+		sizer_11.Add(self.checkbox_check_required, 0, wx.TOP, 5)
+		
+		self.checkbox_check_frequency = wx.CheckBox(self.options_page, wx.ID_ANY, "Check frequency")
+		self.checkbox_check_frequency.arg_name = "frequency"
+		sizer_11.Add(self.checkbox_check_frequency, 0, wx.TOP, 5)
 		
 		sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer_3.Add(sizer_5, 0, wx.LEFT, 15)
+		sizer_10.Add(sizer_5, 0, wx.LEFT, 15)
 		
 		self.text_ctrl_max_files = wx.TextCtrl(self.options_page, wx.ID_ANY, "", style=wx.TE_PROCESS_ENTER | wx.TE_PROCESS_TAB)
 		self.text_ctrl_max_files.SetToolTip("Maximum number of files to process (or 'All')")
 		self.text_ctrl_max_files.arg_name = "max_files"
-		sizer_5.Add(self.text_ctrl_max_files, 0, wx.ALIGN_CENTER_VERTICAL, 0)
+		sizer_5.Add(self.text_ctrl_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.TOP, 5)
 		
 		static_text_max_files = wx.StaticText(self.options_page, wx.ID_ANY, "Max files")
-		sizer_5.Add(static_text_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
+		sizer_5.Add(static_text_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.TOP, 5)
 		
 		sizer_6 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Target"), wx.HORIZONTAL)
-		sizer_3.Add(sizer_6, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 15)
+		sizer_10.Add(sizer_6, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 15)
 		
 		self.text_ctrl_target = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
 		self.text_ctrl_target.arg_name = "targ_arg"
@@ -84,10 +90,8 @@ class MainWindow(wx.Frame):
 		self.button_select_target = wx.Button(self.options_page, wx.ID_ANY, "Select")
 		sizer_6.Add(self.button_select_target, 0, wx.LEFT, 15)
 		
-		sizer_3.Add((20, 20), 0, 0, 0)
-		
 		sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer_3.Add(sizer_4, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 15)
+		sizer_10.Add(sizer_4, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.TOP, 15)
 		
 		self.apply_options_button = wx.Button(self.options_page, wx.ID_ANY, "Apply")
 		self.apply_options_button.Enable(False)
@@ -96,6 +100,8 @@ class MainWindow(wx.Frame):
 		self.revert_options_button = wx.Button(self.options_page, wx.ID_ANY, "Revert")
 		self.revert_options_button.Enable(False)
 		sizer_4.Add(self.revert_options_button, 0, wx.RIGHT, 10)
+		
+		sizer_3.Add((20, 20), 0, 0, 0)
 		
 		sizer_7 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Processing"), wx.HORIZONTAL)
 		sizer_3.Add(sizer_7, 0, wx.LEFT | wx.TOP, 15)
@@ -117,15 +123,38 @@ class MainWindow(wx.Frame):
 		self.static_text_tags_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
 		sizer_8.Add(self.static_text_tags_header, 0, wx.ALL, 15)
 		
+		sizer_9 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_8.Add(sizer_9, 1, wx.EXPAND, 0)
+		
 		self.grid_tags = wx.grid.Grid(self.notebook_1_Tags, wx.ID_ANY, size=(1, 1))
 		self.grid_tags.CreateGrid(10, 2)
+		self.grid_tags.EnableEditing(0)
+		self.grid_tags.EnableDragRowSize(0)
 		self.grid_tags.SetSelectionMode(wx.grid.Grid.SelectRows)
 		self.grid_tags.SetColLabelValue(0, "Filename")
 		self.grid_tags.SetColLabelValue(1, "All Tags")
-		sizer_8.Add(self.grid_tags, 1, wx.ALL | wx.EXPAND, 15)
+		sizer_9.Add(self.grid_tags, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_Missing = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1.AddPage(self.notebook_1_Missing, "Missing")
+		
+		sizer_12 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.static_text_missing_header = wx.StaticText(self.notebook_1_Missing, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
+		self.static_text_missing_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+		sizer_12.Add(self.static_text_missing_header, 0, wx.ALL, 15)
+		
+		sizer_13 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_12.Add(sizer_13, 1, wx.EXPAND, 0)
+		
+		self.grid_tags_missing = wx.grid.Grid(self.notebook_1_Missing, wx.ID_ANY, size=(1, 1))
+		self.grid_tags_missing.CreateGrid(10, 2)
+		self.grid_tags_missing.EnableEditing(0)
+		self.grid_tags_missing.EnableDragRowSize(0)
+		self.grid_tags_missing.SetSelectionMode(wx.grid.Grid.SelectRows)
+		self.grid_tags_missing.SetColLabelValue(0, "Filename")
+		self.grid_tags_missing.SetColLabelValue(1, "Missing Tags")
+		sizer_13.Add(self.grid_tags_missing, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_Disallowed = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1.AddPage(self.notebook_1_Disallowed, "Disallowed")
@@ -145,6 +174,8 @@ class MainWindow(wx.Frame):
 		
 		self.notebook_1_logs.SetSizer(sizer_1)
 		
+		self.notebook_1_Missing.SetSizer(sizer_12)
+		
 		self.notebook_1_Tags.SetSizer(sizer_8)
 		
 		self.options_page.SetSizer(sizer_3)
@@ -153,10 +184,10 @@ class MainWindow(wx.Frame):
 		
 		self.Layout()
 
+		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_file_tags)
 		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_check_allowed)
 		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_check_required)
 		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_check_frequency)
-		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_file_tags)
 		self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_max_files)
 		self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_target)
 		self.Bind(wx.EVT_BUTTON, self.on_apply_options, self.apply_options_button)
@@ -169,7 +200,7 @@ class MainWindow(wx.Frame):
 			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
 			sys.stdout = redir
 			sys.stderr = redir
-			self.workerThread = None
+			self.worker_thread = None
 			self.guiThreadId = threading.current_thread().ident
 			self.args = self.parseArgs()
 			self.update_options()
@@ -177,6 +208,7 @@ class MainWindow(wx.Frame):
 			self.config.read_config(self.args.config)
 			self.reset_results()
 			self.set_button_states()
+			self.GetStatusBar().SetStatusText("")
 		except Exception as exc:
 			self.GetStatusBar().SetStatusText("Error: "+str(exc))
 		print("App starting")
@@ -188,18 +220,6 @@ class MainWindow(wx.Frame):
 	def __do_layout(self):
 		pass #TODO: FIX THIS
 
-	def on_target(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_target' not implemented!")
-		event.Skip()
-
-	def on_tags(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_tags' not implemented!")
-		event.Skip()
-
-	def on_log(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_log' not implemented!")
-		event.Skip()
-
 	def parseArgs(self):
 		parser = phototags.initArgParser()
 		parser.add_argument('--target', default=".", dest='targ_arg', help="File or directory to check")
@@ -207,9 +227,6 @@ class MainWindow(wx.Frame):
 
 	def options_ok(self):
 		return self.max_files_ok() and self.target_ok()
-
-	def lose_focus_max_files(self):
-		pass
 
 	def max_files_ok(self):
 		val_str = self.text_ctrl_max_files.GetValue().strip()
@@ -260,16 +277,22 @@ class MainWindow(wx.Frame):
 						setattr(self.args, arg_name, bool(i.GetValue()))
 			self.options_modified = False
 			self.set_button_states()
+			self.GetStatusBar().SetStatusText("Option settings applied")
+		else:
+			self.GetStatusBar().SetStatusText("Could not apply option settings")
 
 	def on_revert_options(self, event):  # wxGlade: MainWindow.<event_handler>
 		self.update_options()
 		self.options_modified = False
+		self.set_button_states()
+		self.GetStatusBar().SetStatusText("Options reverted to previous settings")
 		
 	def on_options_event(self, event):  # wxGlade: MainWindow.<event_handler>
 		self.options_modified = True
 		self.set_button_states()
 
 	def update_options(self):
+		# Update control values from saved args
 		page = self.options_page.GetChildren()
 		for i in page:
 			if hasattr(i, "arg_name"):
@@ -279,9 +302,9 @@ class MainWindow(wx.Frame):
 					str_value = str(arg_value)
 					if arg_value < 0:
 						str_value = "All"
-					i.ChangeValue(str_value)
-				elif isinstance(i, wx.TextCtrl):
-					i.ChangeValue(arg_value)
+					i.ChangeValue(str_value) # avoids triggering event
+				elif hasattr(i, "ChangeValue"):
+					i.ChangeValue(arg_value) # avoids triggering event
 				else:
 					i.SetValue(arg_value)
 		self.options_modified = False
@@ -289,8 +312,9 @@ class MainWindow(wx.Frame):
 	def on_start_button(self, event):  # wxGlade: MainWindow.<event_handler>
 		self.StatusBar.SetStatusText("Starting to process images...")
 		self.reset_results()
-		self.workerThread = PhotoTagsThread(self.processCallback, self.args, self.args.targ_arg, self.config)
-		self.workerThread.start()
+		self.worker_thread = PhotoTagsThread(self.processCallback, self.args, self.args.targ_arg, self.config)
+		self.worker_thread.start()
+		self.set_button_states()
 
 	def reset_results(self):
 		self.tag_info = []
@@ -298,6 +322,7 @@ class MainWindow(wx.Frame):
 		self.filename = None
 		self.static_text_tags_header.SetLabelText("No results yet")
 		self.grid_tags.Hide()
+		self.grid_tags_missing.Hide()
 		#Reset tag info
 		#Reset missing info
 		#Reset disallowed info
@@ -308,10 +333,10 @@ class MainWindow(wx.Frame):
 		options_ok = self.options_ok()
 		apply_revert = self.options_modified
 		start = options_ok and not self.options_modified and \
-				(self.workerThread is None or \
-				self.workerThread.done)
-		stop = self.workerThread is not None and \
-				not self.workerThread.done
+				(self.worker_thread is None or \
+				self.worker_thread.done)
+		stop = self.worker_thread is not None and \
+				not self.worker_thread.done
 
 		self.apply_options_button.Enable(apply_revert)
 		self.revert_options_button.Enable(apply_revert)
@@ -320,6 +345,7 @@ class MainWindow(wx.Frame):
 
 	def update_results(self):
 		self.update_tag_page()
+		self.update_tags_missing_page()
 		pass #TODO: FIX THIS
 
 	def update_tag_page(self):
@@ -339,9 +365,29 @@ class MainWindow(wx.Frame):
 				self.grid_tags.SetRowAttr(row_num, attr)
 				row_num += 1
 			self.static_text_tags_header.SetLabelText("Tags Per File")
+			self.grid_tags.AutoSize()
 			self.grid_tags.Show()
 
-
+	def update_tags_missing_page(self):
+		if self.options_modified:
+			self.static_text_missing_header.SetLabelText("Options were modified; results are not valid.")
+			self.grid_tags_missing.Hide()
+		elif not self.args.check_required:
+			self.static_text_missing_header.SetLabelText("Options did not include \"check required tags\"")
+			self.grid_tags_missing.Hide()
+		else:
+			rows = [ (r[0], r[2]) for r in self.tag_info if len(r[2]) > 0]
+			row_num = 0
+			for row in rows:
+				self.grid_tags_missing.SetCellValue(row_num, 0, row[0])
+				self.grid_tags_missing.SetCellValue(row_num, 1, ", ".join(row[1]))
+				attr = gridlib.GridCellAttr()
+				attr.SetReadOnly(True)
+				self.grid_tags_missing.SetRowAttr(row_num, attr)
+				row_num += 1
+			self.static_text_missing_header.SetLabelText("Missing Tags")
+			self.grid_tags_missing.AutoSize()
+			self.grid_tags_missing.Show()
 
 	def processCallback(self, callbackName, callbackData):
 		if callbackName == "tags":
@@ -355,16 +401,18 @@ class MainWindow(wx.Frame):
 			status = "Done"
 			if callbackData["wasStopped"]:
 				status = "Stopped"
-			self.StatusBar.SetStatusText("Files: %s; %s - total errors: %s" % (self.fileCount, status, self.errorCount))
-			self.workerThread.done = True
+			self.StatusBar.SetStatusText("Processed %s files; %s - total errors: %s" % (self.fileCount, status, self.errorCount))
+			self.worker_thread.done = True
 			self.update_results()
+			self.set_button_states()
 		else:
 			logging.getLogger().error("Unknown callback name %s", callbackName)
 			self.StatusBar.SetStatusText("Error: Unknown callback name %s" % (callbackName))
 
 	def on_stop_button(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_stop_button' not implemented!")
-		event.Skip()
+		self.worker_thread.stop()
+		self.StatusBar.SetStatusText("Stopping...")
+		self.set_button_states()
 # end of class MainWindow
 
 class Phototags(wx.App):

@@ -180,6 +180,24 @@ class MainWindow(wx.Frame):
 		self.notebook_1_Frequency = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1.AddPage(self.notebook_1_Frequency, "Frequency")
 		
+		sizer_15 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.static_text_tags_freq_header = wx.StaticText(self.notebook_1_Frequency, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
+		self.static_text_tags_freq_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+		sizer_15.Add(self.static_text_tags_freq_header, 0, wx.ALL, 15)
+		
+		sizer_17 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_15.Add(sizer_17, 1, wx.EXPAND, 0)
+		
+		self.grid_tags_freq = wx.grid.Grid(self.notebook_1_Frequency, wx.ID_ANY, size=(1, 1))
+		self.grid_tags_freq.CreateGrid(0, 2)
+		self.grid_tags_freq.EnableEditing(0)
+		self.grid_tags_freq.EnableDragRowSize(0)
+		self.grid_tags_freq.SetSelectionMode(wx.grid.Grid.SelectRows)
+		self.grid_tags_freq.SetColLabelValue(0, "Tag")
+		self.grid_tags_freq.SetColLabelValue(1, "Frequency")
+		sizer_17.Add(self.grid_tags_freq, 1, wx.ALL | wx.EXPAND, 15)
+		
 		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
 		self.notebook_1_logs.Enable(False)
 		self.notebook_1_logs.SetScrollRate(10, 10)
@@ -191,6 +209,8 @@ class MainWindow(wx.Frame):
 		sizer_1.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_logs.SetSizer(sizer_1)
+		
+		self.notebook_1_Frequency.SetSizer(sizer_15)
 		
 		self.notebook_1_Disallowed.SetSizer(sizer_14)
 		
@@ -346,8 +366,7 @@ class MainWindow(wx.Frame):
 		self.grid_tags.Hide()
 		self.grid_tags_missing.Hide()
 		self.grid_tags_bad.Hide()
-		#Reset Frequency info
-		pass #TODO: FIX THIS
+		self.grid_tags_freq.Hide()
 
 	def set_button_states(self):
 		options_ok = self.options_ok()
@@ -367,7 +386,7 @@ class MainWindow(wx.Frame):
 		self.update_tag_page()
 		self.update_tags_missing_page()
 		self.update_tags_disallowed_page()
-		pass #TODO: FIX THIS
+		self.update_tags_freq_page()
 
 	def update_tag_page(self):
 		if self.options_modified:
@@ -439,6 +458,30 @@ class MainWindow(wx.Frame):
 			self.static_text_tags_bad_header.SetLabelText("Disallowed Tags")
 			self.grid_tags_bad.AutoSize()
 			self.grid_tags_bad.Show()
+
+	def update_tags_freq_page(self):
+		if self.options_modified:
+			self.static_text_tags_freq_header.SetLabelText("Options were modified; results are not valid.")
+			self.grid_tags_freq.Hide()
+		elif not self.args.check_allowed:
+			self.static_text_tags_freq_header.SetLabelText("Options did not include \"check allowed tags\"")
+			self.grid_tags_freq.Hide()
+		else:
+			rows = [ item for item in self.worker_thread.photo_tags.tag_stats.freq_dict.items()]
+			excess = len(rows) - self.grid_tags_freq.GetNumberRows()
+			if excess > 0:
+				self.grid_tags_freq.AppendRows(excess)
+			row_num = 0
+			for row in rows:
+				self.grid_tags_freq.SetCellValue(row_num, 0, row[0])
+				self.grid_tags_freq.SetCellValue(row_num, 1, str(row[1]))
+				attr = gridlib.GridCellAttr()
+				attr.SetReadOnly(True)
+				self.grid_tags_freq.SetRowAttr(row_num, attr)
+				row_num += 1
+			self.static_text_tags_freq_header.SetLabelText("Tag Frequency")
+			self.grid_tags_freq.AutoSize()
+			self.grid_tags_freq.Show()
 
 	def processCallback(self, callbackName, callbackData):
 		if callbackName == "tags":

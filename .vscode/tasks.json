@@ -14,13 +14,24 @@
       "problemMatcher": []
     },
     {
+      "label": "build phototags-wxg executable",
+      "type": "shell",
+      "command": "pyinstaller -F phototags-wxg.py",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "build phototags executable",
       "type": "shell",
       "command": "pyinstaller -F phototags.py",
       "group": {
         "kind": "build",
         "isDefault": true
-      }
+      },
+      "problemMatcher": []
     },
     {
       "label": "build phototags-gui executable",

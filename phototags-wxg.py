@@ -199,13 +199,12 @@ class MainWindow(wx.Frame):
 		sizer_17.Add(self.grid_tags_freq, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
-		self.notebook_1_logs.Enable(False)
 		self.notebook_1_logs.SetScrollRate(10, 10)
 		self.notebook_1.AddPage(self.notebook_1_logs, "Logs")
 		
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		
-		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.TE_MULTILINE)
+		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.TE_BESTWRAP | wx.TE_MULTILINE | wx.TE_READONLY)
 		sizer_1.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_logs.SetSizer(sizer_1)
@@ -255,10 +254,10 @@ class MainWindow(wx.Frame):
 
 
 	def __set_properties(self):
-		pass #TODO: FIX THIS
+		pass
 
 	def __do_layout(self):
-		pass #TODO: FIX THIS
+		pass
 
 	def parseArgs(self):
 		parser = phototags.initArgParser()

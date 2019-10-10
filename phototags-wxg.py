@@ -127,7 +127,7 @@ class MainWindow(wx.Frame):
 		sizer_8.Add(sizer_9, 1, wx.EXPAND, 0)
 		
 		self.grid_tags = wx.grid.Grid(self.notebook_1_Tags, wx.ID_ANY, size=(1, 1))
-		self.grid_tags.CreateGrid(10, 2)
+		self.grid_tags.CreateGrid(0, 2)
 		self.grid_tags.EnableEditing(0)
 		self.grid_tags.EnableDragRowSize(0)
 		self.grid_tags.SetSelectionMode(wx.grid.Grid.SelectRows)
@@ -140,15 +140,15 @@ class MainWindow(wx.Frame):
 		
 		sizer_12 = wx.BoxSizer(wx.VERTICAL)
 		
-		self.static_text_missing_header = wx.StaticText(self.notebook_1_Missing, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
-		self.static_text_missing_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
-		sizer_12.Add(self.static_text_missing_header, 0, wx.ALL, 15)
+		self.static_text_tags_missing_header = wx.StaticText(self.notebook_1_Missing, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
+		self.static_text_tags_missing_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+		sizer_12.Add(self.static_text_tags_missing_header, 0, wx.ALL, 15)
 		
 		sizer_13 = wx.BoxSizer(wx.HORIZONTAL)
 		sizer_12.Add(sizer_13, 1, wx.EXPAND, 0)
 		
 		self.grid_tags_missing = wx.grid.Grid(self.notebook_1_Missing, wx.ID_ANY, size=(1, 1))
-		self.grid_tags_missing.CreateGrid(10, 2)
+		self.grid_tags_missing.CreateGrid(0, 2)
 		self.grid_tags_missing.EnableEditing(0)
 		self.grid_tags_missing.EnableDragRowSize(0)
 		self.grid_tags_missing.SetSelectionMode(wx.grid.Grid.SelectRows)
@@ -156,8 +156,26 @@ class MainWindow(wx.Frame):
 		self.grid_tags_missing.SetColLabelValue(1, "Missing Tags")
 		sizer_13.Add(self.grid_tags_missing, 1, wx.ALL | wx.EXPAND, 15)
 		
-		self.notebook_1_Disallowed = wx.Panel(self.notebook_1, wx.ID_ANY)
+		self.notebook_1_Disallowed = wx.Panel(self.notebook_1, wx.ID_ANY, style=wx.BORDER_SIMPLE | wx.TAB_TRAVERSAL)
 		self.notebook_1.AddPage(self.notebook_1_Disallowed, "Disallowed")
+		
+		sizer_14 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.static_text_tags_bad_header = wx.StaticText(self.notebook_1_Disallowed, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
+		self.static_text_tags_bad_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+		sizer_14.Add(self.static_text_tags_bad_header, 0, wx.ALL, 15)
+		
+		sizer_16 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_14.Add(sizer_16, 1, wx.EXPAND, 0)
+		
+		self.grid_tags_bad = wx.grid.Grid(self.notebook_1_Disallowed, wx.ID_ANY, size=(1, 1))
+		self.grid_tags_bad.CreateGrid(0, 2)
+		self.grid_tags_bad.EnableEditing(0)
+		self.grid_tags_bad.EnableDragRowSize(0)
+		self.grid_tags_bad.SetSelectionMode(wx.grid.Grid.SelectRows)
+		self.grid_tags_bad.SetColLabelValue(0, "Filename")
+		self.grid_tags_bad.SetColLabelValue(1, "Missing Tags")
+		sizer_16.Add(self.grid_tags_bad, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_Frequency = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.notebook_1.AddPage(self.notebook_1_Frequency, "Frequency")
@@ -169,10 +187,12 @@ class MainWindow(wx.Frame):
 		
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		
-		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.TE_MULTILINE | wx.TE_READONLY)
+		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.TE_MULTILINE)
 		sizer_1.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_logs.SetSizer(sizer_1)
+		
+		self.notebook_1_Disallowed.SetSizer(sizer_14)
 		
 		self.notebook_1_Missing.SetSizer(sizer_12)
 		
@@ -321,11 +341,11 @@ class MainWindow(wx.Frame):
 		self.fileCount = 0
 		self.filename = None
 		self.static_text_tags_header.SetLabelText("No results yet")
+		self.static_text_tags_missing_header.SetLabelText("No results yet")
+		self.static_text_tags_bad_header.SetLabelText("No results yet")
 		self.grid_tags.Hide()
 		self.grid_tags_missing.Hide()
-		#Reset tag info
-		#Reset missing info
-		#Reset disallowed info
+		self.grid_tags_bad.Hide()
 		#Reset Frequency info
 		pass #TODO: FIX THIS
 
@@ -346,6 +366,7 @@ class MainWindow(wx.Frame):
 	def update_results(self):
 		self.update_tag_page()
 		self.update_tags_missing_page()
+		self.update_tags_disallowed_page()
 		pass #TODO: FIX THIS
 
 	def update_tag_page(self):
@@ -356,6 +377,9 @@ class MainWindow(wx.Frame):
 			self.static_text_tags_header.SetLabelText("Options did not include \"file tags\"")
 			self.grid_tags.Hide()
 		else:
+			excess = len(self.tag_info) - self.grid_tags.GetNumberRows()
+			if excess > 0:
+				self.grid_tags.AppendRows(excess)
 			row_num = 0
 			for row in self.tag_info:
 				self.grid_tags.SetCellValue(row_num, 0, row[0])
@@ -370,13 +394,16 @@ class MainWindow(wx.Frame):
 
 	def update_tags_missing_page(self):
 		if self.options_modified:
-			self.static_text_missing_header.SetLabelText("Options were modified; results are not valid.")
+			self.static_text_tags_missing_header.SetLabelText("Options were modified; results are not valid.")
 			self.grid_tags_missing.Hide()
 		elif not self.args.check_required:
-			self.static_text_missing_header.SetLabelText("Options did not include \"check required tags\"")
+			self.static_text_tags_missing_header.SetLabelText("Options did not include \"check required tags\"")
 			self.grid_tags_missing.Hide()
 		else:
 			rows = [ (r[0], r[2]) for r in self.tag_info if len(r[2]) > 0]
+			excess = len(rows) - self.grid_tags_missing.GetNumberRows()
+			if excess > 0:
+				self.grid_tags_missing.AppendRows(excess)
 			row_num = 0
 			for row in rows:
 				self.grid_tags_missing.SetCellValue(row_num, 0, row[0])
@@ -385,9 +412,33 @@ class MainWindow(wx.Frame):
 				attr.SetReadOnly(True)
 				self.grid_tags_missing.SetRowAttr(row_num, attr)
 				row_num += 1
-			self.static_text_missing_header.SetLabelText("Missing Tags")
+			self.static_text_tags_missing_header.SetLabelText("Missing Tags")
 			self.grid_tags_missing.AutoSize()
 			self.grid_tags_missing.Show()
+
+	def update_tags_disallowed_page(self):
+		if self.options_modified:
+			self.static_text_tags_bad_header.SetLabelText("Options were modified; results are not valid.")
+			self.grid_tags_bad.Hide()
+		elif not self.args.check_allowed:
+			self.static_text_tags_bad_header.SetLabelText("Options did not include \"check allowed tags\"")
+			self.grid_tags_bad.Hide()
+		else:
+			rows = [ (r[0], r[3]) for r in self.tag_info if len(r[3]) > 0]
+			excess = len(rows) - self.grid_tags_bad.GetNumberRows()
+			if excess > 0:
+				self.grid_tags_bad.AppendRows(excess)
+			row_num = 0
+			for row in rows:
+				self.grid_tags_bad.SetCellValue(row_num, 0, row[0])
+				self.grid_tags_bad.SetCellValue(row_num, 1, ", ".join(row[1]))
+				attr = gridlib.GridCellAttr()
+				attr.SetReadOnly(True)
+				self.grid_tags_bad.SetRowAttr(row_num, attr)
+				row_num += 1
+			self.static_text_tags_bad_header.SetLabelText("Disallowed Tags")
+			self.grid_tags_bad.AutoSize()
+			self.grid_tags_bad.Show()
 
 	def processCallback(self, callbackName, callbackData):
 		if callbackName == "tags":

@@ -16,7 +16,7 @@
     {
       "label": "build phototags-wxg executable",
       "type": "shell",
-      "command": "pyinstaller -F phototags-wxg.py",
+      "command": "pyinstaller -F --noconsole phototags-wxg.py",
       "group": {
         "kind": "build",
         "isDefault": true

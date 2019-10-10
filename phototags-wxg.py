@@ -229,6 +229,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_check_frequency)
 		self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_max_files)
 		self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_target)
+		self.Bind(wx.EVT_BUTTON, self.on_target_select, self.button_select_target)
 		self.Bind(wx.EVT_BUTTON, self.on_apply_options, self.apply_options_button)
 		self.Bind(wx.EVT_BUTTON, self.on_revert_options, self.revert_options_button)
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
@@ -325,7 +326,7 @@ class MainWindow(wx.Frame):
 		self.options_modified = False
 		self.set_button_states()
 		self.GetStatusBar().SetStatusText("Options reverted to previous settings")
-		
+	
 	def on_options_event(self, event):  # wxGlade: MainWindow.<event_handler>
 		self.options_modified = True
 		self.set_button_states()
@@ -506,6 +507,12 @@ class MainWindow(wx.Frame):
 		self.worker_thread.stop()
 		self.StatusBar.SetStatusText("Stopping...")
 		self.set_button_states()
+
+	def on_target_select(self, event):  # wxGlade: MainWindow.<event_handler>
+		dlg = wx.DirDialog(self, "Select a target directory for searching photos", "", style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST )
+		dlg.ShowModal()
+		target = dlg.GetPath()
+		self.text_ctrl_target.SetValue(target)
 # end of class MainWindow
 
 class Phototags(wx.App):

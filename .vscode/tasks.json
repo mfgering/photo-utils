@@ -14,9 +14,9 @@
       "problemMatcher": []
     },
     {
-      "label": "build phototags-wxg executable",
+      "label": "build phototags-gui executable",
       "type": "shell",
-      "command": "pyinstaller -F --noconsole phototags-wxg.py",
+      "command": "pyinstaller -F --noconsole phototags-gui.py",
       "group": {
         "kind": "build",
         "isDefault": true

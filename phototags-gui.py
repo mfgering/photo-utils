@@ -15,6 +15,82 @@ import wx.grid as gridlib
 # end wxGlade
 
 
+
+class TagsConfigFrame(wx.Frame):
+	def __init__(self, *args, **kwds):
+		# begin wxGlade: TagsConfigFrame.__init__
+		kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
+		wx.Frame.__init__(self, *args, **kwds)
+		self.SetSize((400, 300))
+		self.SetTitle("Tag Configuration")
+		
+		self.frame_tags_config_statusbar = self.CreateStatusBar(1)
+		self.frame_tags_config_statusbar.SetStatusWidths([-1])
+		# statusbar fields
+		frame_tags_config_statusbar_fields = ["frame_tags_config_statusbar"]
+		for i in range(len(frame_tags_config_statusbar_fields)):
+			self.frame_tags_config_statusbar.SetStatusText(frame_tags_config_statusbar_fields[i], i)
+		
+		sizer_1 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.grid_config = wx.grid.Grid(self, wx.ID_ANY, size=(1, 1))
+		self.grid_config.CreateGrid(10, 2)
+		self.grid_config.SetColLabelValue(0, "Tag")
+		self.grid_config.SetColLabelValue(1, "Required")
+		sizer_1.Add(self.grid_config, 1, wx.EXPAND, 0)
+		
+		sizer_18 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_1.Add(sizer_18, 0, wx.ALL, 15)
+		
+		self.button_add = wx.Button(self, wx.ID_ANY, "Add")
+		self.button_add.SetToolTip("Add a row")
+		sizer_18.Add(self.button_add, 0, 0, 0)
+		
+		self.button_apply = wx.Button(self, wx.ID_ANY, "Apply")
+		self.button_apply.SetToolTip("Apply settings to current configuration")
+		sizer_18.Add(self.button_apply, 0, 0, 0)
+		
+		self.button_save = wx.Button(self, wx.ID_ANY, "Save...")
+		self.button_save.SetToolTip("Save to file")
+		sizer_18.Add(self.button_save, 0, 0, 0)
+		
+		self.SetSizer(sizer_1)
+		
+		self.Layout()
+
+		self.Bind(wx.grid.EVT_GRID_CMD_CELL_CHANGED, self.on_cell_changed, self.grid_config)
+		self.Bind(wx.EVT_BUTTON, self.on_add, self.button_add)
+		self.Bind(wx.EVT_BUTTON, self.on_apply, self.button_apply)
+		self.Bind(wx.EVT_BUTTON, self.on_save, self.button_save)
+		# end wxGlade
+		self.dirty = False
+		self.config = None
+		self.close_handler = None
+
+	def set_config(self, config):
+		self.config = config
+
+	def set_close_handler(self, close_handler):
+		self.close_handler = close_handler
+		self.Bind(wx.EVT_CLOSE, close_handler, self)
+	
+	def on_apply(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
+		print("Event handler 'on_apply' not implemented!")
+		event.Skip()
+
+	def on_save(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
+		print("Event handler 'on_save' not implemented!")
+		event.Skip()
+
+	def on_add(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
+		print("Event handler 'on_add' not implemented!")
+		event.Skip()
+
+	def on_cell_changed(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
+		print("Event handler 'on_cell_changed' not implemented!")
+		event.Skip()
+
+# end of class TagsConfigFrame
 class MainWindow(wx.Frame):
 	def __init__(self, *args, **kwds):
 		# begin wxGlade: MainWindow.__init__
@@ -102,6 +178,13 @@ class MainWindow(wx.Frame):
 		sizer_4.Add(self.revert_options_button, 0, wx.RIGHT, 10)
 		
 		sizer_3.Add((20, 20), 0, 0, 0)
+		
+		sizer_18 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Configuration"), wx.HORIZONTAL)
+		sizer_3.Add(sizer_18, 1, wx.ALL | wx.EXPAND, 15)
+		
+		self.button_edit_config = wx.Button(self.options_page, wx.ID_ANY, "Edit...")
+		self.button_edit_config.SetToolTip("Edit tag configuration")
+		sizer_18.Add(self.button_edit_config, 0, 0, 0)
 		
 		sizer_7 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Processing"), wx.HORIZONTAL)
 		sizer_3.Add(sizer_7, 0, wx.LEFT | wx.TOP, 15)
@@ -233,6 +316,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_target_select, self.button_select_target)
 		self.Bind(wx.EVT_BUTTON, self.on_apply_options, self.apply_options_button)
 		self.Bind(wx.EVT_BUTTON, self.on_revert_options, self.revert_options_button)
+		self.Bind(wx.EVT_BUTTON, self.on_edit_config, self.button_edit_config)
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		# end wxGlade
@@ -242,6 +326,7 @@ class MainWindow(wx.Frame):
 			sys.stdout = redir
 			sys.stderr = redir
 			self.worker_thread = None
+			self.tag_config_frame = None
 			self.guiThreadId = threading.current_thread().ident
 			self.args = self.parseArgs()
 			self.update_options()
@@ -514,7 +599,132 @@ class MainWindow(wx.Frame):
 		dlg.ShowModal()
 		target = dlg.GetPath()
 		self.text_ctrl_target.SetValue(target)
+
+	def on_edit_config(self, event):  # wxGlade: MainWindow.<event_handler>
+		self.tag_config_frame = TagsConfigFrame(self)
+		self.tag_config_frame.set_config(self.config)
+		self.tag_config_frame.set_close_handler(self.on_edit_config_close)
+		self.tag_config_frame.Show()
+		self.button_edit_config.Disable()
+
+	def on_edit_config_close(self, event):
+		self.tag_config_frame.Destroy()
+		self.tag_config_frame = None
+		self.button_edit_config.Enable()
+
 # end of class MainWindow
+
+class TagsFrameOld(wx.Frame):
+	def __init__(self, parent, config):
+		wx.Frame.__init__(self, parent, wx.ID_ANY, "Tag Configuration")
+		self.config = config
+		self.dirty = False
+
+		toolbar = self.CreateToolBar()
+
+		self.applyButton = wx.Button(toolbar, label="Apply")
+		toolbar.AddControl(self.applyButton)
+		self.applyButton.Bind(wx.EVT_BUTTON, self.OnApply)
+
+		self.saveButton = wx.Button(toolbar, label="Save")
+		toolbar.AddControl(self.saveButton)
+		self.saveButton.Bind(wx.EVT_BUTTON, self.OnSave)
+
+		self.addButton = wx.Button(toolbar, label="Add")
+		toolbar.AddControl(self.addButton)
+		self.addButton.Bind(wx.EVT_BUTTON, self.OnAdd)
+
+		toolbar.Realize()
+		self.CreateStatusBar()
+
+		# Add a panel so it looks the correct on all platforms
+		self.panel = wx.Panel(self, wx.ID_ANY)
+		panelSizer = wx.BoxSizer(wx.VERTICAL)
+		self.panel.SetSizer(panelSizer)
+		self.grid = gridlib.Grid(self.panel)
+		gridSizer = wx.BoxSizer(wx.HORIZONTAL)
+		gridSizer.Add(self.grid, 1, wx.ALL|wx.EXPAND, 5)
+		self.panel.GetSizer().Add(gridSizer, 0, wx.ALL|wx.EXPAND)
+		self.grid.SetDefaultCellOverflow(False)
+		self.grid.SetColLabelValue(0, "Tag")
+		self.grid.SetColLabelValue(1, "Is Required")
+		self.grid.SetDefaultCellOverflow(False)
+		all_tags = sorted(set(config.tags_allowed + config.tags_required))
+		self.grid.CreateGrid(len(all_tags), 2)
+		self.grid.SetColLabelValue(0, "Tag")
+		self.grid.SetColLabelValue(1, "Required")
+		attr = gridlib.GridCellAttr()
+		attr.SetEditor(gridlib.GridCellBoolEditor())
+		attr.SetRenderer(gridlib.GridCellBoolRenderer())
+		self.grid.SetColAttr(1, attr)
+		row_num = 0
+		for tag in all_tags:
+			self.grid.SetCellValue(row_num, 0, tag)
+			cell_value = ""
+			if tag in config.tags_required:
+				cell_value = "1"
+			self.grid.SetCellValue(row_num, 1, cell_value)
+			row_num += 1
+		self.Bind(wx.EVT_CLOSE, self.OnClose)
+		self.Bind(wx.grid.EVT_GRID_CELL_CHANGED, self.OnCellChanged)
+		self.grid.AutoSize()
+		self.panel.Layout()
+
+	def OnApply(self, e):
+		errors = self.apply2config()
+		if errors == 0:
+			self.StatusBar.SetStatusText("Tag info is applied (but not saved)")
+
+	def apply2config(self):
+		tags_allowed = []
+		tags_required = []
+		errors = 0
+		for row_num in range(0, self.grid.GetNumberRows()):
+			tag = self.grid.GetCellValue(row_num, 0)
+			if len(tag) > 0:
+				prop = self.grid.GetCellValue(row_num, 1)
+				if tag in tags_allowed or tag in tags_required:
+					self.StatusBar.SetStatusText("Error: Duplicate tag %s" % (tag))
+					errors += 1
+				else:
+					if prop == '1':
+						tags_required.append(tag)
+					else:
+						tags_allowed.append(tag)
+		if errors == 0:
+			self.config.tags_allowed = tags_allowed
+			self.config.tags_required = tags_required
+		return errors
+
+	def OnSave(self, e):
+		try:
+			errors = self.apply2config()
+			if errors == 0:
+				self.StatusBar.SetStatusText("Tag info is applied and saved")
+				self.config.save_config()
+				self.dirty = False
+
+		except Exception as exc:
+			logging.getLogger().exception(exc)
+	
+	def OnAdd(self, e):
+		self.grid.AppendRows()
+		w, h = self.GetClientSize()
+		self.SetSize((w, h))
+
+	def OnCellChanged(self, e):
+		self.dirty = True
+
+	def OnClose(self, e):
+		answer = wx.ID_YES
+		if self.dirty:
+			dlg = wx.MessageDialog(self, "The tags have been modified, but not saved. Close anyway?", 
+				caption="Unsaved Tag Configuration Changes",
+				style=wx.CANCEL|wx.YES_NO)
+			answer = dlg.ShowModal()
+		if answer == wx.ID_YES:
+			self.GetParent().tagsClosed()
+			self.Destroy()
 
 class Phototags(wx.App):
 	def OnInit(self):

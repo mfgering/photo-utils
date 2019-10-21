@@ -4,7 +4,17 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "glade",
+      "label": "glade imagededup",
+      "type": "shell",
+      "command": "python ${config:glade.location}/wxglade.py ${workspaceRoot}/imagededup.wxg",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "glade phototags",
       "type": "shell",
       "command": "python ${config:glade.location}/wxglade.py ${workspaceRoot}/glade1.wxg",
       "group": {

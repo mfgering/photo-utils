@@ -155,7 +155,6 @@ class DeDupe(object):
         ax = plt.subplot(
             gs[0, 1:3]
         )  # Always plot the original image in the middle of top row
-
         for dup in image_dups:
             id = dup[0]
             fn = id_map[id]

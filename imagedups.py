@@ -12,278 +12,356 @@ import wx.grid
 
 # begin wxGlade: extracode
 from imagededup.methods import PHash
-import contextlib, hashlib, logging, os, sqlite3
+import contextlib, hashlib, logging, sys, os, sqlite3, threading
 # end wxGlade
 
 
 class ImageDedupFrame(wx.Frame):
-    def __init__(self, *args, **kwds):
-        # begin wxGlade: ImageDedupFrame.__init__
-        kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
-        wx.Frame.__init__(self, *args, **kwds)
-        self.SetSize((400, 300))
-        self.SetTitle("frame")
-        
-        self.frame_statusbar = self.CreateStatusBar(1)
-        self.frame_statusbar.SetStatusWidths([-1])
-        # statusbar fields
-        frame_statusbar_fields = ["frame_statusbar"]
-        for i in range(len(frame_statusbar_fields)):
-            self.frame_statusbar.SetStatusText(frame_statusbar_fields[i], i)
-        
-        sizer_1 = wx.BoxSizer(wx.VERTICAL)
-        
-        self.notebook_1 = wx.Notebook(self, wx.ID_ANY, style=wx.NB_BOTTOM)
-        sizer_1.Add(self.notebook_1, 1, wx.ALL | wx.EXPAND, 5)
-        
-        self.options_page = wx.Panel(self.notebook_1, wx.ID_ANY)
-        self.options_page.SetToolTip("Show/edit processing options")
-        self.notebook_1.AddPage(self.options_page, "Options")
-        
-        sizer_3 = wx.BoxSizer(wx.VERTICAL)
-        
-        sizer_10 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Options"), wx.VERTICAL)
-        sizer_3.Add(sizer_10, 0, wx.ALL | wx.EXPAND, 15)
-        
-        sizer_11 = wx.BoxSizer(wx.VERTICAL)
-        sizer_10.Add(sizer_11, 1, wx.EXPAND | wx.LEFT, 15)
-        
-        self.checkbox_replace_encodings = wx.CheckBox(self.options_page, wx.ID_ANY, "Replace encodings")
-        self.checkbox_replace_encodings.SetValue(1)
-        sizer_11.Add(self.checkbox_replace_encodings, 0, wx.TOP, 5)
-        
-        sizer_11.Add((0, 0), 0, 0, 0)
-        
-        sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_11.Add(sizer_4, 1, wx.EXPAND, 0)
-        
-        self.text_dist_thresh = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
-        sizer_4.Add(self.text_dist_thresh, 0, wx.TOP, 5)
-        
-        static_text_dist_thresh = wx.StaticText(self.options_page, wx.ID_ANY, "Distance threshold")
-        sizer_4.Add(static_text_dist_thresh, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.TOP, 5)
-        
-        sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_10.Add(sizer_5, 0, wx.LEFT, 15)
-        
-        self.text_ctrl_max_files = wx.TextCtrl(self.options_page, wx.ID_ANY, "", style=wx.TE_PROCESS_ENTER | wx.TE_PROCESS_TAB)
-        self.text_ctrl_max_files.SetToolTip("Maximum number of files to process (or 'All')")
-        sizer_5.Add(self.text_ctrl_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.TOP, 5)
-        
-        static_text_max_files = wx.StaticText(self.options_page, wx.ID_ANY, "Max files")
-        sizer_5.Add(static_text_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.TOP, 5)
-        
-        sizer_6 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Target"), wx.HORIZONTAL)
-        sizer_10.Add(sizer_6, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 15)
-        
-        self.text_ctrl_target = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
-        self.text_ctrl_target.arg_name = "targ_arg"
-        sizer_6.Add(self.text_ctrl_target, 1, wx.EXPAND, 0)
-        
-        self.button_select_target = wx.Button(self.options_page, wx.ID_ANY, "Select")
-        sizer_6.Add(self.button_select_target, 0, wx.LEFT, 15)
-        
-        sizer_7 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Processing"), wx.HORIZONTAL)
-        sizer_3.Add(sizer_7, 0, wx.ALL, 15)
-        
-        self.button_start = wx.Button(self.options_page, wx.ID_ANY, "Start")
-        sizer_7.Add(self.button_start, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 10)
-        
-        self.button_stop = wx.Button(self.options_page, wx.ID_ANY, "Stop")
-        self.button_stop.Enable(False)
-        sizer_7.Add(self.button_stop, 0, wx.RIGHT | wx.TOP, 10)
-        
-        self.notebook_1_dups = wx.Panel(self.notebook_1, wx.ID_ANY)
-        self.notebook_1_dups.SetToolTip("Show duplicates")
-        self.notebook_1.AddPage(self.notebook_1_dups, "Dups")
-        
-        sizer_8 = wx.BoxSizer(wx.VERTICAL)
-        
-        self.static_text_tags_header = wx.StaticText(self.notebook_1_dups, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
-        self.static_text_tags_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
-        sizer_8.Add(self.static_text_tags_header, 0, wx.ALL, 15)
-        
-        sizer_9 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_8.Add(sizer_9, 1, wx.EXPAND, 0)
-        
-        self.grid_tags = wx.grid.Grid(self.notebook_1_dups, wx.ID_ANY, size=(1, 1))
-        self.grid_tags.CreateGrid(0, 2)
-        self.grid_tags.EnableEditing(0)
-        self.grid_tags.EnableDragRowSize(0)
-        self.grid_tags.SetSelectionMode(wx.grid.Grid.SelectRows)
-        self.grid_tags.SetColLabelValue(0, "Filename")
-        self.grid_tags.SetColLabelValue(1, "All Tags")
-        sizer_9.Add(self.grid_tags, 1, wx.ALL | wx.EXPAND, 15)
-        
-        self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
-        self.notebook_1_logs.SetScrollRate(10, 10)
-        self.notebook_1.AddPage(self.notebook_1_logs, "Logs")
-        
-        sizer_2 = wx.BoxSizer(wx.VERTICAL)
-        
-        self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.TE_BESTWRAP | wx.TE_MULTILINE | wx.TE_READONLY)
-        sizer_2.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 15)
-        
-        self.notebook_1_logs.SetSizer(sizer_2)
-        
-        self.notebook_1_dups.SetSizer(sizer_8)
-        
-        self.options_page.SetSizer(sizer_3)
-        
-        self.SetSizer(sizer_1)
-        
-        self.Layout()
-        self.app_init()
+	def __init__(self, *args, **kwds):
+		# begin wxGlade: ImageDedupFrame.__init__
+		kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
+		wx.Frame.__init__(self, *args, **kwds)
+		self.SetSize((400, 300))
+		self.SetTitle("frame")
+		
+		self.frame_statusbar = self.CreateStatusBar(1)
+		self.frame_statusbar.SetStatusWidths([-1])
+		# statusbar fields
+		frame_statusbar_fields = ["frame_statusbar"]
+		for i in range(len(frame_statusbar_fields)):
+		    self.frame_statusbar.SetStatusText(frame_statusbar_fields[i], i)
+		
+		sizer_1 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.notebook_1 = wx.Notebook(self, wx.ID_ANY, style=wx.NB_BOTTOM)
+		sizer_1.Add(self.notebook_1, 1, wx.ALL | wx.EXPAND, 5)
+		
+		self.options_page = wx.Panel(self.notebook_1, wx.ID_ANY)
+		self.options_page.SetToolTip("Show/edit processing options")
+		self.notebook_1.AddPage(self.options_page, "Options")
+		
+		sizer_3 = wx.BoxSizer(wx.VERTICAL)
+		
+		sizer_10 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Options"), wx.VERTICAL)
+		sizer_3.Add(sizer_10, 0, wx.ALL | wx.EXPAND, 15)
+		
+		sizer_11 = wx.BoxSizer(wx.VERTICAL)
+		sizer_10.Add(sizer_11, 1, wx.EXPAND | wx.LEFT, 15)
+		
+		self.checkbox_replace_encodings = wx.CheckBox(self.options_page, wx.ID_ANY, "Replace encodings")
+		self.checkbox_replace_encodings.SetValue(1)
+		sizer_11.Add(self.checkbox_replace_encodings, 0, wx.TOP, 5)
+		
+		sizer_4 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_11.Add(sizer_4, 1, wx.EXPAND, 0)
+		
+		self.text_dist_thresh = wx.TextCtrl(self.options_page, wx.ID_ANY, "10")
+		self.text_dist_thresh.SetToolTip("Distance for detecting duplicates")
+		sizer_4.Add(self.text_dist_thresh, 0, wx.TOP, 5)
+		
+		static_text_dist_thresh = wx.StaticText(self.options_page, wx.ID_ANY, "Distance threshold")
+		sizer_4.Add(static_text_dist_thresh, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.TOP, 5)
+		
+		sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_10.Add(sizer_5, 0, wx.LEFT, 15)
+		
+		self.text_ctrl_max_files = wx.TextCtrl(self.options_page, wx.ID_ANY, "All", style=wx.TE_PROCESS_ENTER | wx.TE_PROCESS_TAB)
+		self.text_ctrl_max_files.SetToolTip("Maximum number of files to process (or 'All')")
+		sizer_5.Add(self.text_ctrl_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.TOP, 5)
+		
+		static_text_max_files = wx.StaticText(self.options_page, wx.ID_ANY, "Max files")
+		sizer_5.Add(static_text_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.TOP, 5)
+		
+		sizer_6 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Target"), wx.HORIZONTAL)
+		sizer_10.Add(sizer_6, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.TOP, 15)
+		
+		self.text_ctrl_target = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
+		self.text_ctrl_target.arg_name = "targ_arg"
+		sizer_6.Add(self.text_ctrl_target, 1, wx.EXPAND, 0)
+		
+		self.button_select_target = wx.Button(self.options_page, wx.ID_ANY, "Select")
+		sizer_6.Add(self.button_select_target, 0, wx.LEFT, 15)
+		
+		sizer_7 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Processing"), wx.HORIZONTAL)
+		sizer_3.Add(sizer_7, 0, wx.ALL, 15)
+		
+		self.button_start = wx.Button(self.options_page, wx.ID_ANY, "Start")
+		sizer_7.Add(self.button_start, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 10)
+		
+		self.button_stop = wx.Button(self.options_page, wx.ID_ANY, "Stop")
+		self.button_stop.Enable(False)
+		sizer_7.Add(self.button_stop, 0, wx.RIGHT | wx.TOP, 10)
+		
+		self.notebook_1_dups = wx.Panel(self.notebook_1, wx.ID_ANY)
+		self.notebook_1_dups.SetToolTip("Show duplicates")
+		self.notebook_1.AddPage(self.notebook_1_dups, "Dups")
+		
+		sizer_8 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.static_text_dups_header = wx.StaticText(self.notebook_1_dups, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
+		self.static_text_dups_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+		sizer_8.Add(self.static_text_dups_header, 0, wx.ALL, 15)
+		
+		sizer_9 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_8.Add(sizer_9, 1, wx.EXPAND, 0)
+		
+		sizer_9.Add((0, 0), 0, 0, 0)
+		
+		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
+		self.notebook_1_logs.SetScrollRate(10, 10)
+		self.notebook_1.AddPage(self.notebook_1_logs, "Logs")
+		
+		sizer_2 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.TE_BESTWRAP | wx.TE_MULTILINE | wx.TE_READONLY)
+		sizer_2.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 15)
+		
+		self.notebook_1_logs.SetSizer(sizer_2)
+		
+		self.notebook_1_dups.SetSizer(sizer_8)
+		
+		self.options_page.SetSizer(sizer_3)
+		
+		self.SetSizer(sizer_1)
+		
+		self.Layout()
+		self.app_init()
 
-        self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_replace_encodings)
-        self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_max_files)
-        self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_target)
-        self.Bind(wx.EVT_BUTTON, self.on_target_select, self.button_select_target)
-        self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
-        self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
-        # end wxGlade
+		self.Bind(wx.EVT_BUTTON, self.on_target_select, self.button_select_target)
+		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
+		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
+		# end wxGlade
 
-    def app_init(self):
-        self.init_db()
-        self.p_hasher = PHash()
+	def app_init(self):
+		self.guiThreadId = threading.current_thread().ident
+		redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
+		sys.stdout = redir
+		sys.stderr = redir
 
-    def on_options_event(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
-        print("Event handler 'on_options_event' not implemented!")
-        event.Skip()
+		self.worker_thread = None
+		self.SetMinClientSize((600, 480))
+		self.SetClientSize((600, 480))
+		self.init_db()
+		self.p_hasher = PHash()
 
-    def on_target_select(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
-        print("Event handler 'on_target_select' not implemented!")
-        event.Skip()
+	def on_target_select(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
+		dlg = wx.DirDialog(self, "Select a target directory for searching photos", "", style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST )
+		dlg.ShowModal()
+		target = dlg.GetPath()
+		self.text_ctrl_target.SetValue(target)
 
-    def on_start_button(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
-        print("Event handler 'on_start_button' not implemented!")
-        event.Skip()
+	def on_start_button(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
+		if self.check_options():
+			self.GetStatusBar().SetStatusText("Starting to process images...")
+			self.reset_results()
+			self.set_button_states()
+			self.worker_thread = WorkerThread(gui=self)
+			self.worker_thread.start()
 
-    def on_stop_button(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
-        print("Event handler 'on_stop_button' not implemented!")
-        event.Skip()
-    
-    def __del__(self):
-        self.close_db()
+	def worker_done(self):
+		self.GetStatusBar().SetStatusText("Duplicate checking finished")
+		self.set_button_states()
 
-    def init_db(self):
-        self.db_conn = sqlite3.connect('imagededup.db')
-        #self.cursor = self.db_conn.cursor()
-        self.make_schema()
-        #self.db_conn.commit()
-        #self.db_conn.close()	
+	def on_stop_button(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
+		print("Event handler 'on_stop_button' not implemented!")
+		event.Skip()
+	
+	def __del__(self):
+		self.close_db()
 
-    def close_db(self):
-        if self.db_conn is not None:
-            self.db_conn.close()
-            self.db_conn = None
+	def init_db(self):
+		self.db_conn = sqlite3.connect('imagedups.db')
+		#self.cursor = self.db_conn.cursor()
+		self.make_schema()
+		#self.db_conn.commit()
+		#self.db_conn.close()	
 
-    def make_schema(self):
-        stmt = """
-    BEGIN TRANSACTION;
-    CREATE TABLE IF NOT EXISTS `p_encoding` (
-        `image_id`	INTEGER NOT NULL,
-        `encoding`	TEXT NOT NULL,
-        PRIMARY KEY(`image_id`),
-        FOREIGN KEY(`image_id`) REFERENCES `image_info`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
-    );
-    CREATE TABLE IF NOT EXISTS `image_info` (
-        `id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
-        `path`	TEXT NOT NULL,
-        `filename`	TEXT NOT NULL,
-        `filesize`	INTEGER,
-        `md5`	BLOB
-    );
-    CREATE INDEX IF NOT EXISTS `image_pk` ON `image_info` (
-        `path`,
-        `filename`
-    );
-    COMMIT;
-    """
-        result = self.db_conn.executescript(stmt)
+	def close_db(self):
+		if self.db_conn is not None:
+			self.db_conn.close()
+			self.db_conn = None
 
-    def encode_dir(self, target, replace = True):
-        if os.path.isdir(target):
-            for dir_name, _, file_list in os.walk(target):
-                for fn in file_list:
-                    self.encode_file(dir_name, fn, replace)
-        else:
-            logging.logger().error("Target '%s' is not a directory", target)
-    
-    def encode_file(self, dir_name, fn, replace=True):
-        fn_full = os.path.join(dir_name, fn)
-        with contextlib.closing(self.db_conn.cursor()) as cursor:
-            if os.path.isfile(fn_full):
-                image_id = None
-                is_different = True
-                stat_info = os.stat(fn_full)
-                with open(fn_full, 'rb') as image_file:
-                    buff = image_file.read()
-                    md5_hasher = hashlib.md5()
-                    md5_hasher.update(buff)
-                    digest = md5_hasher.digest()
-                cursor.execute("SELECT * FROM image_info i where i.filename = ? and i.path = ?", (fn, dir_name))
-                r = cursor.fetchone()
-                if r is not None:
-                    image_id, _, _, filesize, md5 = r
-                    is_different = stat_info.st_size != filesize or digest != md5
-                if is_different or replace:
-                    # insert or update image_info
-                    stmt = '''REPLACE INTO image_info(id, path, filename, filesize, md5)
-                                VALUES(?, ?, ?, ?, ?)'''
-                    result = cursor.execute(stmt, (image_id, dir_name, fn, stat_info.st_size, digest))
-                    image_id = result.lastrowid                  
-                    # insert or update p_encoding
-                    encoding = self.p_hasher.encode_image(fn_full)
-                    stmt = '''REPLACE INTO p_encoding (image_id, encoding)
-                                VALUES(?, ?)'''
-                    result = cursor.execute(stmt, (image_id, encoding))
-                    self.db_conn.commit()
+	def make_schema(self):
+		stmt = """
+	BEGIN TRANSACTION;
+	CREATE TABLE IF NOT EXISTS `p_encoding` (
+		`image_id`	INTEGER NOT NULL,
+		`encoding`	TEXT NOT NULL,
+		PRIMARY KEY(`image_id`),
+		FOREIGN KEY(`image_id`) REFERENCES `image_info`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS `image_info` (
+		`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+		`path`	TEXT NOT NULL,
+		`filename`	TEXT NOT NULL,
+		`filesize`	INTEGER,
+		`md5`	BLOB
+	);
+	CREATE INDEX IF NOT EXISTS `image_pk` ON `image_info` (
+		`path`,
+		`filename`
+	);
+	COMMIT;
+	"""
+		result = self.db_conn.executescript(stmt)
 
-    def db2map(self, method="P"):
-        map = {}
-        with contextlib.closing(self.db_conn.cursor()) as cursor:
-            if method == "P":
-                for row in cursor.execute("SELECT * FROM p_encoding"):
-                    map[row[0]] = row[1]
-        return map
+	def reset_results(self):
+		self.static_text_dups_header.SetLabelText("No results yet")
 
-    def find_duplicates(self, method="P"):
-        map = self.db2map(method)
-        d = self.p_hasher.find_duplicates(encoding_map=map, max_distance_threshold=10, scores=False)
-        reduced, set_seen = self.reduce_dups(d)
-        return reduced, set_seen
+	def set_button_states(self):
+		options_ok = self.options_ok()
+		start = options_ok and \
+				(self.worker_thread is None or \
+				self.worker_thread.done)
+		stop = self.worker_thread is not None and \
+				not self.worker_thread.done
+		self.button_start.Enable(start)
+		self.button_stop.Enable(stop)
 
-    def reduce_dups(self, dups):
-        result = []
-        set_seen = set()
-        for id, dup_arr in dups.items():
-            if len(dup_arr) > 0 and id not in set_seen:
-                set_seen.add(id)
-                set_seen.update(dup_arr)
-                new_dups = [id]+dup_arr
-                result.append(new_dups)
-        return (result, set_seen)
+	def options_ok(self):
+		return self.max_files_ok() and self.target_ok()
 
-    def image_ids_2_filename(self, ids):
-        dct = {}
-        id_str = ','.join([str(i) for i in ids])
-        cursor = self.db_conn.execute("SELECT id, path, filename from image_info where id in (%s)" % id_str)
-        for id, path, filename in cursor:
-            dct[id] = os.path.join(path, filename)
-        return dct
+	def check_options(self):
+		options_ok = True
+		if not self.max_files_ok():
+			dlg = wx.MessageDialog(self, "Max files must be a number greater than 1 or \"All\"", 
+				caption="Max files error",
+				style=wx.OK)
+			answer = dlg.ShowModal()
+			options_ok = False
+		if not self.target_ok():
+			dlg = wx.MessageDialog(self, "The target must be an existing directory", 
+				caption="Target Error",
+				style=wx.OK)
+			answer = dlg.ShowModal()
+			options_ok = False
+		return options_ok
+		
+	def max_files_ok(self):
+		val_str = self.text_ctrl_max_files.GetValue().strip()
+		if len(val_str) > 0 and val_str.lower() != "all":
+			try:
+				val = int(val_str)
+				return val >= 2
+			except Exception as exc:
+				return False
+		return True
+
+	def target_ok(self):
+		target = self.text_ctrl_target.GetValue().strip()
+		return os.path.isdir(target)
+
+	def encode_dir(self, target, replace = True):
+		if os.path.isdir(target):
+			for dir_name, _, file_list in os.walk(target):
+				for fn in file_list:
+					self.encode_file(dir_name, fn, replace)
+		else:
+			logging.logger().error("Target '%s' is not a directory", target)
+	
+	def encode_file(self, dir_name, fn, replace=True):
+		fn_full = os.path.join(dir_name, fn)
+		with contextlib.closing(self.db_conn.cursor()) as cursor:
+			if os.path.isfile(fn_full):
+				image_id = None
+				is_different = True
+				stat_info = os.stat(fn_full)
+				with open(fn_full, 'rb') as image_file:
+					buff = image_file.read()
+					md5_hasher = hashlib.md5()
+					md5_hasher.update(buff)
+					digest = md5_hasher.digest()
+				cursor.execute("SELECT * FROM image_info i where i.filename = ? and i.path = ?", (fn, dir_name))
+				r = cursor.fetchone()
+				if r is not None:
+					image_id, _, _, filesize, md5 = r
+					is_different = stat_info.st_size != filesize or digest != md5
+				if is_different or replace:
+					# insert or update image_info
+					stmt = '''REPLACE INTO image_info(id, path, filename, filesize, md5)
+								VALUES(?, ?, ?, ?, ?)'''
+					result = cursor.execute(stmt, (image_id, dir_name, fn, stat_info.st_size, digest))
+					image_id = result.lastrowid                  
+					# insert or update p_encoding
+					encoding = self.p_hasher.encode_image(fn_full)
+					stmt = '''REPLACE INTO p_encoding (image_id, encoding)
+								VALUES(?, ?)'''
+					result = cursor.execute(stmt, (image_id, encoding))
+					self.db_conn.commit()
+
+	def db2map(self, method="P"):
+		map = {}
+		with contextlib.closing(self.db_conn.cursor()) as cursor:
+			if method == "P":
+				for row in cursor.execute("SELECT * FROM p_encoding"):
+					map[row[0]] = row[1]
+		return map
+
+	def find_duplicates(self, method="P"):
+		map = self.db2map(method)
+		d = self.p_hasher.find_duplicates(encoding_map=map, max_distance_threshold=10, scores=False)
+		reduced, set_seen = self.reduce_dups(d)
+		return reduced, set_seen
+
+	def reduce_dups(self, dups):
+		result = []
+		set_seen = set()
+		for id, dup_arr in dups.items():
+			if len(dup_arr) > 0 and id not in set_seen:
+				set_seen.add(id)
+				set_seen.update(dup_arr)
+				new_dups = [id]+dup_arr
+				result.append(new_dups)
+		return (result, set_seen)
+
+	def image_ids_2_filename(self, ids):
+		dct = {}
+		id_str = ','.join([str(i) for i in ids])
+		cursor = self.db_conn.execute("SELECT id, path, filename from image_info where id in (%s)" % id_str)
+		for id, path, filename in cursor:
+			dct[id] = os.path.join(path, filename)
+		return dct
 
 # end of class ImageDedupFrame
 
+class RedirectText(object):
+	def __init__(self, aWxTextCtrl, guiThreadId):
+		self.out=aWxTextCtrl
+		self.guiThreadId = guiThreadId
+
+	def write(self, string):
+		threadId = threading.current_thread().ident
+		if self.guiThreadId == threadId:
+			self.out.WriteText(string)
+		else:
+			wx.CallAfter(self.out.WriteText, string)
+
+class WorkerThread(threading.Thread):
+	def __init__(self, gui):
+		super().__init__()
+		self.gui = gui
+		self.error_count = 0
+		self.stopping = False
+		self.done = False
+
+	def run(self):
+		self.done = True
+		wx.CallAfter(self.gui.worker_done)
+
+	def stop(self):
+		self.stopping = True
+
+# end of class Phototags
+
 class MyApp(wx.App):
-    def OnInit(self):
-        self.frame = ImageDedupFrame(None, wx.ID_ANY, "")
-        self.SetTopWindow(self.frame)
-        self.frame.Show()
-        return True
+	def OnInit(self):
+		self.frame = ImageDedupFrame(None, wx.ID_ANY, "")
+		self.SetTopWindow(self.frame)
+		self.frame.Show()
+		return True
 
 # end of class MyApp
 
 if __name__ == "__main__":
-    app = MyApp(0)
-    app.MainLoop()
+	app = MyApp(0)
+	app.MainLoop()

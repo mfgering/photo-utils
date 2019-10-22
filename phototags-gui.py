@@ -496,7 +496,7 @@ class MainWindow(wx.Frame):
 	def reset_results(self):
 		self.tag_info = []
 		self.fileCount = 0
-		self.filename = None
+		self.filename = None #TODO: DELETE?
 		self.static_text_tags_header.SetLabelText("No results yet")
 		self.static_text_tags_missing_header.SetLabelText("No results yet")
 		self.static_text_tags_bad_header.SetLabelText("No results yet")

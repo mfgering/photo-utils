@@ -96,16 +96,28 @@ class ImageDedupFrame(wx.Frame):
 		self.notebook_1_dups.SetToolTip("Show duplicates")
 		self.notebook_1.AddPage(self.notebook_1_dups, "Dups")
 		
-		sizer_8 = wx.BoxSizer(wx.VERTICAL)
+		self.sizer_dups_page = wx.BoxSizer(wx.VERTICAL)
 		
 		self.static_text_dups_header = wx.StaticText(self.notebook_1_dups, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
 		self.static_text_dups_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
-		sizer_8.Add(self.static_text_dups_header, 0, wx.ALL, 15)
+		self.sizer_dups_page.Add(self.static_text_dups_header, 0, wx.ALL, 15)
 		
-		sizer_9 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer_8.Add(sizer_9, 1, wx.EXPAND, 0)
+		sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
+		self.sizer_dups_page.Add(sizer_8, 0, wx.ALL, 5)
 		
-		sizer_9.Add((0, 0), 0, 0, 0)
+		self.button_select_all = wx.Button(self.notebook_1_dups, wx.ID_ANY, "Select All")
+		sizer_8.Add(self.button_select_all, 0, 0, 0)
+		
+		self.button_select_none = wx.Button(self.notebook_1_dups, wx.ID_ANY, "Select None")
+		sizer_8.Add(self.button_select_none, 0, 0, 0)
+		
+		self.button_delete_selected = wx.Button(self.notebook_1_dups, wx.ID_ANY, "Delete Selected")
+		sizer_8.Add(self.button_delete_selected, 0, 0, 0)
+		
+		self.panel_dups_list = wx.ScrolledWindow(self.notebook_1_dups, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
+		self.panel_dups_list.SetBackgroundColour(wx.Colour(0, 127, 255))
+		self.panel_dups_list.SetScrollRate(10, 10)
+		self.sizer_dups_page.Add(self.panel_dups_list, 1, wx.EXPAND, 0)
 		
 		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
 		self.notebook_1_logs.SetScrollRate(10, 10)
@@ -118,7 +130,7 @@ class ImageDedupFrame(wx.Frame):
 		
 		self.notebook_1_logs.SetSizer(sizer_2)
 		
-		self.notebook_1_dups.SetSizer(sizer_8)
+		self.notebook_1_dups.SetSizer(self.sizer_dups_page)
 		
 		self.options_page.SetSizer(sizer_3)
 		
@@ -130,6 +142,7 @@ class ImageDedupFrame(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_target_select, self.button_select_target)
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
+		self.Bind(wx.EVT_BUTTON, self.on_select_all, self.button_select_all)
 		# end wxGlade
 
 	def app_init(self):
@@ -141,8 +154,6 @@ class ImageDedupFrame(wx.Frame):
 		self.worker_thread = None
 		self.SetMinClientSize((600, 480))
 		self.SetClientSize((600, 480))
-		self.init_db()
-		self.p_hasher = PHash()
 
 	def on_target_select(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
 		dlg = wx.DirDialog(self, "Select a target directory for searching photos", "", style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST )
@@ -160,53 +171,61 @@ class ImageDedupFrame(wx.Frame):
 
 	def worker_done(self):
 		self.GetStatusBar().SetStatusText("Duplicate checking finished")
+		self.update_results(self.worker_thread.images_dups, self.worker_thread.id_map)
 		self.set_button_states()
 
 	def on_stop_button(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
 		print("Event handler 'on_stop_button' not implemented!")
 		event.Skip()
 	
-	def __del__(self):
-		self.close_db()
-
-	def init_db(self):
-		self.db_conn = sqlite3.connect('imagedups.db')
-		#self.cursor = self.db_conn.cursor()
-		self.make_schema()
-		#self.db_conn.commit()
-		#self.db_conn.close()	
-
-	def close_db(self):
-		if self.db_conn is not None:
-			self.db_conn.close()
-			self.db_conn = None
-
-	def make_schema(self):
-		stmt = """
-	BEGIN TRANSACTION;
-	CREATE TABLE IF NOT EXISTS `p_encoding` (
-		`image_id`	INTEGER NOT NULL,
-		`encoding`	TEXT NOT NULL,
-		PRIMARY KEY(`image_id`),
-		FOREIGN KEY(`image_id`) REFERENCES `image_info`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
-	);
-	CREATE TABLE IF NOT EXISTS `image_info` (
-		`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
-		`path`	TEXT NOT NULL,
-		`filename`	TEXT NOT NULL,
-		`filesize`	INTEGER,
-		`md5`	BLOB
-	);
-	CREATE INDEX IF NOT EXISTS `image_pk` ON `image_info` (
-		`path`,
-		`filename`
-	);
-	COMMIT;
-	"""
-		result = self.db_conn.executescript(stmt)
 
 	def reset_results(self):
 		self.static_text_dups_header.SetLabelText("No results yet")
+
+	def update_results(self, image_dups, id_map):
+		sizer_7 = wx.BoxSizer(wx.VERTICAL)
+		self.panel_dups_list.SetSizer(sizer_7)
+
+		dup_set_id = 0
+		for dup_set in image_dups:
+			dup_set_sizer = self.create_dup_set(dup_set_id)
+			#print("Duplicate set %s" % (dup_set_id))
+			dup_set_id += 1
+			# Create a new row of images
+			for image_id in dup_set:
+				# Create an image for the dup_set
+				fn = id_map[image_id]
+				dup_image_info = self.create_dup_image(dup_set_sizer, fn)
+			#sizer_7.Add(dup_set_sizer, 0, wx.ALL, 0)
+	
+	def create_dup_set(self, dup_set_id):
+		sizer_4 = wx.StaticBoxSizer(wx.StaticBox(self.panel_dups_list, wx.ID_ANY, "Duplicate set %s" % (str(dup_set_id))), wx.HORIZONTAL)
+		self.panel_dups_list.GetSizer().Add(sizer_4, 0, wx.ALL, 0)
+		return sizer_4
+
+	def create_dup_image(self, dup_set_sizer, filename):
+		sizer_5 = wx.BoxSizer(wx.VERTICAL)
+		dup_set_sizer.Add(sizer_5, 0, wx.ALL, 5)
+
+		bm = wx.Bitmap(filename)
+		sz = bm.GetSize()
+		r = ( 200.0 / sz.width)
+		w_n = int(sz.width * r) 
+		h_n = int(sz.height * r)
+		im = bm.ConvertToImage()
+		im2 = im.Scale(w_n, h_n)
+		
+		#bitmap_1.SetBitmap(wx.Bitmap(im2))
+
+		bitmap_scaled = wx.StaticBitmap(self.panel_dups_list, wx.ID_ANY, wx.Bitmap(im2, wx.BITMAP_TYPE_ANY), style=wx.BORDER_SIMPLE)
+		sizer_5.Add(bitmap_scaled, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
+		
+		static_text_2 = wx.StaticText(self.panel_dups_list, wx.ID_ANY, filename)
+		sizer_5.Add(static_text_2, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
+		
+		self.checkbox_2 = wx.CheckBox(self.panel_dups_list, wx.ID_ANY, "")
+		sizer_5.Add(self.checkbox_2, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
+		return sizer_5
 
 	def set_button_states(self):
 		options_ok = self.options_ok()
@@ -250,6 +269,85 @@ class ImageDedupFrame(wx.Frame):
 	def target_ok(self):
 		target = self.text_ctrl_target.GetValue().strip()
 		return os.path.isdir(target)
+
+
+	def on_select_all(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
+		print("Event handler 'on_select_all' not implemented!")
+		event.Skip()
+# end of class ImageDedupFrame
+
+class RedirectText(object):
+	def __init__(self, aWxTextCtrl, guiThreadId):
+		self.out=aWxTextCtrl
+		self.guiThreadId = guiThreadId
+
+	def write(self, string):
+		threadId = threading.current_thread().ident
+		if self.guiThreadId == threadId:
+			self.out.WriteText(string)
+		else:
+			wx.CallAfter(self.out.WriteText, string)
+
+class WorkerThread(threading.Thread):
+	def __init__(self, gui):
+		super().__init__()
+		self.gui = gui
+		self.error_count = 0
+		self.stopping = False
+		self.done = False
+
+	def run(self):
+		self.p_hasher = PHash()
+		self.init_db()
+		self.target = self.gui.text_ctrl_target.GetValue()
+		self.is_replace = self.gui.checkbox_replace_encodings.GetValue()
+		self.encode_dir(self.target, self.is_replace)
+		self.images_dups, self.ids_seen = self.find_duplicates()
+		self.id_map = self.image_ids_2_filename(self.ids_seen)
+		self.done = True
+		wx.CallAfter(self.gui.worker_done)
+
+	def stop(self):
+		self.stopping = True
+
+	def __del__(self):
+		self.close_db()
+
+	def init_db(self):
+		self.db_conn = sqlite3.connect('imagedups.db')
+		#self.cursor = self.db_conn.cursor()
+		self.make_schema()
+		#self.db_conn.commit()
+		#self.db_conn.close()	
+
+	def close_db(self):
+		if self.db_conn is not None:
+			self.db_conn.close()
+			self.db_conn = None
+
+	def make_schema(self):
+		stmt = """
+	BEGIN TRANSACTION;
+	CREATE TABLE IF NOT EXISTS `p_encoding` (
+		`image_id`	INTEGER NOT NULL,
+		`encoding`	TEXT NOT NULL,
+		PRIMARY KEY(`image_id`),
+		FOREIGN KEY(`image_id`) REFERENCES `image_info`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS `image_info` (
+		`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+		`path`	TEXT NOT NULL,
+		`filename`	TEXT NOT NULL,
+		`filesize`	INTEGER,
+		`md5`	BLOB
+	);
+	CREATE INDEX IF NOT EXISTS `image_pk` ON `image_info` (
+		`path`,
+		`filename`
+	);
+	COMMIT;
+	"""
+		result = self.db_conn.executescript(stmt)
 
 	def encode_dir(self, target, replace = True):
 		if os.path.isdir(target):
@@ -321,35 +419,6 @@ class ImageDedupFrame(wx.Frame):
 		for id, path, filename in cursor:
 			dct[id] = os.path.join(path, filename)
 		return dct
-
-# end of class ImageDedupFrame
-
-class RedirectText(object):
-	def __init__(self, aWxTextCtrl, guiThreadId):
-		self.out=aWxTextCtrl
-		self.guiThreadId = guiThreadId
-
-	def write(self, string):
-		threadId = threading.current_thread().ident
-		if self.guiThreadId == threadId:
-			self.out.WriteText(string)
-		else:
-			wx.CallAfter(self.out.WriteText, string)
-
-class WorkerThread(threading.Thread):
-	def __init__(self, gui):
-		super().__init__()
-		self.gui = gui
-		self.error_count = 0
-		self.stopping = False
-		self.done = False
-
-	def run(self):
-		self.done = True
-		wx.CallAfter(self.gui.worker_done)
-
-	def stop(self):
-		self.stopping = True
 
 # end of class Phototags
 

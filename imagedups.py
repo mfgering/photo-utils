@@ -315,10 +315,8 @@ class WorkerThread(threading.Thread):
 
 	def init_db(self):
 		self.db_conn = sqlite3.connect('imagedups.db')
-		#self.cursor = self.db_conn.cursor()
+		self.db_conn.execute("PRAGMA foreign_keys = ON")
 		self.make_schema()
-		#self.db_conn.commit()
-		#self.db_conn.close()	
 
 	def close_db(self):
 		if self.db_conn is not None:

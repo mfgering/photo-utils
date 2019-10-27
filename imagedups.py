@@ -189,14 +189,14 @@ class ImageDedupFrame(wx.Frame):
 		dup_set_id = 0
 		for dup_set in image_dups:
 			dup_set_sizer = self.create_dup_set(dup_set_id)
-			#print("Duplicate set %s" % (dup_set_id))
 			dup_set_id += 1
 			# Create a new row of images
 			for image_id in dup_set:
 				# Create an image for the dup_set
 				fn = id_map[image_id]
 				dup_image_info = self.create_dup_image(dup_set_sizer, fn)
-			#sizer_7.Add(dup_set_sizer, 0, wx.ALL, 0)
+		self.static_text_dups_header.SetLabelText("Detected Duplicates")
+		self.notebook_1_dups.Layout()
 	
 	def create_dup_set(self, dup_set_id):
 		sizer_4 = wx.StaticBoxSizer(wx.StaticBox(self.panel_dups_list, wx.ID_ANY, "Duplicate set %s" % (str(dup_set_id))), wx.HORIZONTAL)
@@ -339,7 +339,8 @@ class WorkerThread(threading.Thread):
 		`path`	TEXT NOT NULL,
 		`filename`	TEXT NOT NULL,
 		`filesize`	INTEGER,
-		`md5`	BLOB
+		`md5`	BLOB,
+		`verified` INTEGER DEFAULT 0
 	);
 	CREATE INDEX IF NOT EXISTS `image_pk` ON `image_info` (
 		`path`,
@@ -351,41 +352,45 @@ class WorkerThread(threading.Thread):
 
 	def encode_dir(self, target, replace = True):
 		if os.path.isdir(target):
-			for dir_name, _, file_list in os.walk(target):
-				for fn in file_list:
-					self.encode_file(dir_name, fn, replace)
+			with contextlib.closing(self.db_conn.cursor()) as cursor:
+				cursor.execute("UPDATE image_info SET verified = 0")
+				for dir_name, _, file_list in os.walk(target):
+					for fn in file_list:
+						self.encode_file(dir_name, fn, cursor, replace)
+				cursor.execute("DELETE FROM image_info WHERE verified = 0")
+				self.db_conn.commit()
 		else:
 			logging.logger().error("Target '%s' is not a directory", target)
 	
-	def encode_file(self, dir_name, fn, replace=True):
+	def encode_file(self, dir_name, fn, cursor, replace=True):
 		fn_full = os.path.join(dir_name, fn)
-		with contextlib.closing(self.db_conn.cursor()) as cursor:
-			if os.path.isfile(fn_full):
-				image_id = None
-				is_different = True
-				stat_info = os.stat(fn_full)
-				with open(fn_full, 'rb') as image_file:
-					buff = image_file.read()
-					md5_hasher = hashlib.md5()
-					md5_hasher.update(buff)
-					digest = md5_hasher.digest()
-				cursor.execute("SELECT * FROM image_info i where i.filename = ? and i.path = ?", (fn, dir_name))
-				r = cursor.fetchone()
-				if r is not None:
-					image_id, _, _, filesize, md5 = r
-					is_different = stat_info.st_size != filesize or digest != md5
-				if is_different or replace:
-					# insert or update image_info
-					stmt = '''REPLACE INTO image_info(id, path, filename, filesize, md5)
-								VALUES(?, ?, ?, ?, ?)'''
-					result = cursor.execute(stmt, (image_id, dir_name, fn, stat_info.st_size, digest))
-					image_id = result.lastrowid                  
-					# insert or update p_encoding
-					encoding = self.p_hasher.encode_image(fn_full)
-					stmt = '''REPLACE INTO p_encoding (image_id, encoding)
-								VALUES(?, ?)'''
-					result = cursor.execute(stmt, (image_id, encoding))
-					self.db_conn.commit()
+		if os.path.isfile(fn_full):
+			image_id = None
+			is_different = True
+			stat_info = os.stat(fn_full)
+			with open(fn_full, 'rb') as image_file:
+				buff = image_file.read()
+				md5_hasher = hashlib.md5()
+				md5_hasher.update(buff)
+				digest = md5_hasher.digest()
+			cursor.execute("SELECT * FROM image_info i where i.filename = ? and i.path = ?", (fn, dir_name))
+			r = cursor.fetchone()
+			if r is not None:
+				image_id, _, _, filesize, md5, verified = r
+				is_different = stat_info.st_size != filesize or digest != md5
+				if not is_different and not replace:
+					cursor.execute("UPDATE image_info SET verified = 1 WHERE id = ?", (str(image_id)))
+			if is_different or replace:
+				# insert or update image_info
+				stmt = '''REPLACE INTO image_info(id, path, filename, filesize, md5, verified)
+							VALUES(?, ?, ?, ?, ?, 1)'''
+				result = cursor.execute(stmt, (image_id, dir_name, fn, stat_info.st_size, digest))
+				image_id = result.lastrowid                  
+				# insert or update p_encoding
+				encoding = self.p_hasher.encode_image(fn_full)
+				stmt = '''REPLACE INTO p_encoding (image_id, encoding)
+							VALUES(?, ?)'''
+				result = cursor.execute(stmt, (image_id, encoding))
 
 	def db2map(self, method="P"):
 		map = {}

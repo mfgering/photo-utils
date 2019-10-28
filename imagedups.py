@@ -12,9 +12,13 @@ import wx.grid
 
 # begin wxGlade: extracode
 from imagededup.methods import PHash
-import contextlib, hashlib, logging, sys, os, sqlite3, threading
+import contextlib, enum, hashlib, logging, sys, os, sqlite3, threading
 # end wxGlade
 
+class SelectOp(enum.Enum):
+	select_all = 1
+	select_none = 0
+	select_invert = -1
 
 class ImageDedupFrame(wx.Frame):
 	def __init__(self, *args, **kwds):
@@ -29,7 +33,7 @@ class ImageDedupFrame(wx.Frame):
 		# statusbar fields
 		frame_statusbar_fields = ["frame_statusbar"]
 		for i in range(len(frame_statusbar_fields)):
-		    self.frame_statusbar.SetStatusText(frame_statusbar_fields[i], i)
+			self.frame_statusbar.SetStatusText(frame_statusbar_fields[i], i)
 		
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		
@@ -111,6 +115,9 @@ class ImageDedupFrame(wx.Frame):
 		self.button_select_none = wx.Button(self.notebook_1_dups, wx.ID_ANY, "Select None")
 		sizer_8.Add(self.button_select_none, 0, 0, 0)
 		
+		self.button_select_invert = wx.Button(self.notebook_1_dups, wx.ID_ANY, "Invert Selection")
+		sizer_8.Add(self.button_select_invert, 0, 0, 0)
+		
 		self.button_delete_selected = wx.Button(self.notebook_1_dups, wx.ID_ANY, "Delete Selected")
 		sizer_8.Add(self.button_delete_selected, 0, 0, 0)
 		
@@ -143,6 +150,9 @@ class ImageDedupFrame(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		self.Bind(wx.EVT_BUTTON, self.on_select_all, self.button_select_all)
+		self.Bind(wx.EVT_BUTTON, self.on_select_none, self.button_select_none)
+		self.Bind(wx.EVT_BUTTON, self.on_select_invert, self.button_select_invert)
+		self.Bind(wx.EVT_BUTTON, self.on_select_delete, self.button_delete_selected)
 		# end wxGlade
 
 	def app_init(self):
@@ -178,14 +188,13 @@ class ImageDedupFrame(wx.Frame):
 		print("Event handler 'on_stop_button' not implemented!")
 		event.Skip()
 	
-
 	def reset_results(self):
 		self.static_text_dups_header.SetLabelText("No results yet")
+		self.panel_dups_list.DestroyChildren()
 
 	def update_results(self, image_dups, id_map):
 		sizer_7 = wx.BoxSizer(wx.VERTICAL)
 		self.panel_dups_list.SetSizer(sizer_7)
-
 		dup_set_id = 0
 		for dup_set in image_dups:
 			dup_set_sizer = self.create_dup_set(dup_set_id)
@@ -195,7 +204,7 @@ class ImageDedupFrame(wx.Frame):
 				# Create an image for the dup_set
 				fn = id_map[image_id]
 				dup_image_info = self.create_dup_image(dup_set_sizer, fn)
-		self.static_text_dups_header.SetLabelText("Detected Duplicates")
+		self.static_text_dups_header.SetLabelText("Possible Duplicates")
 		self.notebook_1_dups.Layout()
 	
 	def create_dup_set(self, dup_set_id):
@@ -214,17 +223,15 @@ class ImageDedupFrame(wx.Frame):
 		h_n = int(sz.height * r)
 		im = bm.ConvertToImage()
 		im2 = im.Scale(w_n, h_n)
-		
-		#bitmap_1.SetBitmap(wx.Bitmap(im2))
-
 		bitmap_scaled = wx.StaticBitmap(self.panel_dups_list, wx.ID_ANY, wx.Bitmap(im2, wx.BITMAP_TYPE_ANY), style=wx.BORDER_SIMPLE)
 		sizer_5.Add(bitmap_scaled, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
-		
 		static_text_2 = wx.StaticText(self.panel_dups_list, wx.ID_ANY, filename)
 		sizer_5.Add(static_text_2, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
-		
 		self.checkbox_2 = wx.CheckBox(self.panel_dups_list, wx.ID_ANY, "")
 		sizer_5.Add(self.checkbox_2, 0, wx.ALIGN_CENTER_HORIZONTAL, 0)
+		self.checkbox_2.imagededup_fn = filename
+		self.checkbox_2.imagededup_sbm = bitmap_scaled
+		self.checkbox_2.imagededup_st = static_text_2
 		return sizer_5
 
 	def set_button_states(self):
@@ -272,8 +279,32 @@ class ImageDedupFrame(wx.Frame):
 
 
 	def on_select_all(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
-		print("Event handler 'on_select_all' not implemented!")
-		event.Skip()
+		self.do_image_select(SelectOp.select_all)
+
+	def on_select_none(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
+		self.do_image_select(SelectOp.select_none)
+
+	def on_select_invert(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
+		self.do_image_select(SelectOp.select_invert)
+
+	def do_image_select(self, op):
+		for ctrl in self.panel_dups_list.GetChildren():
+			if hasattr(ctrl, "imagededup_fn") and isinstance(ctrl, wx.CheckBox) and ctrl.Enabled:
+				val_new = True
+				if op == SelectOp.select_none:
+					val_new = False
+				elif op == SelectOp.select_invert:
+					val_new = not ctrl.GetValue()
+				ctrl.SetValue(val_new)
+
+	def on_select_delete(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
+		for ctrl in self.panel_dups_list.GetChildren():
+			if hasattr(ctrl, "imagededup_fn") and isinstance(ctrl, wx.CheckBox) and ctrl.GetValue():
+				os.remove(ctrl.imagededup_fn)
+				ctrl.imagededup_sbm.Destroy()
+				ctrl.imagededup_st.Destroy()
+				ctrl.Destroy()
+		self.notebook_1_dups.Layout()
 # end of class ImageDedupFrame
 
 class RedirectText(object):

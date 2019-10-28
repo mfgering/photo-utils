@@ -26,14 +26,10 @@ class ImageDedupFrame(wx.Frame):
 		kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
 		wx.Frame.__init__(self, *args, **kwds)
 		self.SetSize((400, 300))
-		self.SetTitle("frame")
+		self.SetTitle("Detect Duplicate Images")
 		
 		self.frame_statusbar = self.CreateStatusBar(1)
 		self.frame_statusbar.SetStatusWidths([-1])
-		# statusbar fields
-		frame_statusbar_fields = ["frame_statusbar"]
-		for i in range(len(frame_statusbar_fields)):
-			self.frame_statusbar.SetStatusText(frame_statusbar_fields[i], i)
 		
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		

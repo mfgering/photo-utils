@@ -160,10 +160,34 @@ class ImageDedupFrame(wx.Frame):
 		redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
 		sys.stdout = redir
 		sys.stderr = redir
-
+		self.init_db()
+		self.init_saved_vars()
 		self.worker_thread = None
 		self.SetMinClientSize((600, 480))
 		self.SetClientSize((600, 480))
+
+	def init_saved_vars(self):
+		self.checkbox_replace_encodings.SetValue(self.get_var("replace_encodings", "False", bool))
+		self.text_ctrl_target.SetLabelText(self.get_var("target", ".", str))
+		self.text_ctrl_max_files.SetLabelText(self.get_var("max_files", "All", str))
+		self.text_dist_thresh.SetLabelText(str(self.get_var("dist_threshold", "10", int)))
+
+	def get_var(self, var_name, var_default, var_type=str):
+		result = self.db_conn.execute("SELECT value FROM vars WHERE name=?", (var_name,))
+		(var_value,) = result.fetchone()
+		if var_value is None:
+			var_value = var_default
+			self.db_conn.execute("INSERT INTO vars(name, value) VALUES(?, ?)", (var_name, var_value))
+			self.db_conn.commit()
+		if var_type == bool:
+			var_value = var_value.lower() in ['true', 'yes', '1']
+		elif var_type == int:
+			var_value = int(var_value)
+		return var_value
+
+	def set_var(self, var_name, var_value):
+		self.db_conn.execute("REPLACE INTO vars(name, value) VALUES(?, ?)", (var_name, var_value))
+		self.db_conn.commit()
 
 	def on_target_select(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
 		dlg = wx.DirDialog(self, "Select a target directory for searching photos", "", style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST )
@@ -173,11 +197,18 @@ class ImageDedupFrame(wx.Frame):
 
 	def on_start_button(self, event):  # wxGlade: ImageDedupFrame.<event_handler>
 		if self.check_options():
+			self.save_options()
 			self.GetStatusBar().SetStatusText("Starting to process images...")
 			self.reset_results()
 			self.set_button_states()
 			self.worker_thread = WorkerThread(gui=self)
 			self.worker_thread.start()
+
+	def save_options(self):
+		self.set_var("replace_encodings", self.checkbox_replace_encodings.GetValue())
+		self.set_var("target", self.text_ctrl_target.GetValue())
+		self.set_var("max_files", self.text_ctrl_max_files.GetValue())
+		self.set_var("dist_threshold", self.text_dist_thresh.GetValue())
 
 	def worker_done(self):
 		self.GetStatusBar().SetStatusText("Duplicate checking finished")
@@ -305,6 +336,46 @@ class ImageDedupFrame(wx.Frame):
 				ctrl.imagededup_st.Destroy()
 				ctrl.Destroy()
 		self.notebook_1_dups.Layout()
+
+	def init_db(self):
+		self.db_conn = sqlite3.connect('imagedups.db')
+		self.db_conn.execute("PRAGMA foreign_keys = ON")
+		self.make_schema()
+
+	def close_db(self):
+		if self.db_conn is not None:
+			self.db_conn.close()
+			self.db_conn = None
+
+	def make_schema(self):
+		stmt = """
+	BEGIN TRANSACTION;
+	CREATE TABLE IF NOT EXISTS `vars` (
+		`name`	TEXT NOT NULL,
+		`value`	TEXT NOT NULL
+	);
+	CREATE TABLE IF NOT EXISTS `p_encoding` (
+		`image_id`	INTEGER NOT NULL,
+		`encoding`	TEXT NOT NULL,
+		PRIMARY KEY(`image_id`),
+		FOREIGN KEY(`image_id`) REFERENCES `image_info`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+	);
+	CREATE TABLE IF NOT EXISTS `image_info` (
+		`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+		`path`	TEXT NOT NULL,
+		`filename`	TEXT NOT NULL,
+		`filesize`	INTEGER,
+		`md5`	BLOB,
+		`verified` INTEGER DEFAULT 0
+	);
+	CREATE INDEX IF NOT EXISTS `image_pk` ON `image_info` (
+		`path`,
+		`filename`
+	);
+	COMMIT;
+	"""
+		result = self.db_conn.executescript(stmt)
+
 # end of class ImageDedupFrame
 
 class RedirectText(object):
@@ -328,8 +399,9 @@ class WorkerThread(threading.Thread):
 		self.done = False
 
 	def run(self):
+		self.db_conn = sqlite3.connect('imagedups.db')
+		self.db_conn.execute("PRAGMA foreign_keys = ON")
 		self.p_hasher = PHash()
-		self.init_db()
 		self.target = self.gui.text_ctrl_target.GetValue()
 		self.is_replace = self.gui.checkbox_replace_encodings.GetValue()
 		self.encode_dir(self.target, self.is_replace)
@@ -343,41 +415,6 @@ class WorkerThread(threading.Thread):
 
 	def __del__(self):
 		self.close_db()
-
-	def init_db(self):
-		self.db_conn = sqlite3.connect('imagedups.db')
-		self.db_conn.execute("PRAGMA foreign_keys = ON")
-		self.make_schema()
-
-	def close_db(self):
-		if self.db_conn is not None:
-			self.db_conn.close()
-			self.db_conn = None
-
-	def make_schema(self):
-		stmt = """
-	BEGIN TRANSACTION;
-	CREATE TABLE IF NOT EXISTS `p_encoding` (
-		`image_id`	INTEGER NOT NULL,
-		`encoding`	TEXT NOT NULL,
-		PRIMARY KEY(`image_id`),
-		FOREIGN KEY(`image_id`) REFERENCES `image_info`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
-	);
-	CREATE TABLE IF NOT EXISTS `image_info` (
-		`id`	INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
-		`path`	TEXT NOT NULL,
-		`filename`	TEXT NOT NULL,
-		`filesize`	INTEGER,
-		`md5`	BLOB,
-		`verified` INTEGER DEFAULT 0
-	);
-	CREATE INDEX IF NOT EXISTS `image_pk` ON `image_info` (
-		`path`,
-		`filename`
-	);
-	COMMIT;
-	"""
-		result = self.db_conn.executescript(stmt)
 
 	def encode_dir(self, target, replace = True):
 		if os.path.isdir(target):
@@ -408,7 +445,7 @@ class WorkerThread(threading.Thread):
 				image_id, _, _, filesize, md5, verified = r
 				is_different = stat_info.st_size != filesize or digest != md5
 				if not is_different and not replace:
-					cursor.execute("UPDATE image_info SET verified = 1 WHERE id = ?", (str(image_id)))
+					cursor.execute("UPDATE image_info SET verified = 1 WHERE id = ?", (str(image_id),))
 			if is_different or replace:
 				# insert or update image_info
 				stmt = '''REPLACE INTO image_info(id, path, filename, filesize, md5, verified)

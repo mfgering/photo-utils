@@ -24,19 +24,9 @@
       "problemMatcher": []
     },
     {
-      "label": "build phototags-gui executable",
-      "type": "shell",
-      "command": "pyinstaller -F --noconsole phototags-gui.py",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": []
-    },
-    {
       "label": "build phototags executable",
       "type": "shell",
-      "command": "pyinstaller -F phototags.py",
+      "command": "pyinstaller -i app-icon.ico -F phototags.py",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -46,7 +36,7 @@
     {
       "label": "build phototags-gui executable",
       "type": "shell",
-      "command": "pyinstaller -F --noconsole phototags-gui.py",
+      "command": "pyinstaller --add-binary app-icon.jpg;. -i app-icon.ico -F --noconsole phototags-gui.py",
       "group": {
         "kind": "build",
         "isDefault": true

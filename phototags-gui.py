@@ -147,7 +147,7 @@ class MainWindow(wx.Frame):
 		self.SetSize((694, 609))
 		self.SetTitle("Phototags")
 		_icon = wx.NullIcon
-		_icon.CopyFromBitmap(wx.Bitmap("C:\\Users\\mgering\\photo-utils\\app-icon.jpg", wx.BITMAP_TYPE_ANY))
+		_icon.CopyFromBitmap(wx.Bitmap(self.resource_path('./app-icon.jpg')))
 		self.SetIcon(_icon)
 		
 		self.frame_statusbar = self.CreateStatusBar(1)
@@ -663,6 +663,15 @@ class MainWindow(wx.Frame):
 		self.tag_config_frame = None
 		self.button_edit_config.Enable()
 
+	def resource_path(self, relative_path):
+			""" Get absolute path to resource, works for dev and for PyInstaller """
+			try:
+					# PyInstaller creates a temp folder and stores path in _MEIPASS
+					base_path = sys._MEIPASS
+			except Exception:
+					base_path = os.path.abspath(".")
+
+			return os.path.join(base_path, relative_path)
 # end of class MainWindow
 
 class Phototags(wx.App):

@@ -1,8 +1,9 @@
 from iptcinfo3 import IPTCInfo
 import datetime
+import enum
 import exifread
 import configparser
-import argparse, os, sys
+import argparse, os, re, sys
 import logging
 
 class PhotoTags(object):
@@ -164,7 +165,22 @@ class PhotoTagsCallback(object):
 		self.name = name
 		self.data = data
 
+def foo(): #TODO: REMOVE THIS
+	patterns = ['abc', 'ab?', 'a*', 'a\\nbc', 'a[bc]+']
+	kinds = [TagKind.LITERAL, TagKind.WILDCARD, TagKind.REGEX]
+	vals = ['abc', 'a\nbc', 'abbcc']
+	tpats = TagPatterns()
+	for k in kinds:
+		for p in patterns:
+			t = TagPattern(p, k)
+			tpats.add(t)
+	for v in ['abc', 'abd', 'ab?', 'a*']:
+		found = v in tpats
+		print("%s : %s: %s" % (str(t), v, found))
+
 def main():
+	#foo() #TODO: REMOVE THIS
+	#return
 	try:
 		parser = initArgParser()
 		parser.add_argument('targ_arg', help="File or directory to check")
@@ -211,8 +227,8 @@ class PhotoTagsConfig(object):
 	def __init__(self):
 		self.config_parser = configparser.ConfigParser()
 		self.config_ini = None
-		self.tags_required = []
-		self.tags_allowed = []
+		self.tags_required = TagPatterns()
+		self.tags_allowed = TagPatterns()
 
 	def read_config(self, config_ini="phototags.ini"):
 		self.config_ini = config_ini
@@ -230,11 +246,19 @@ class PhotoTagsConfig(object):
 
 	def option2tags(self, option):
 		arr = option.split("\n")
-		result = []
+		result = TagPatterns()
 		for t in arr:
 			t_trim = t.strip()
+			tag_kind = TagKind.LITERAL
+			if t_trim.startswith('w/'):
+				tag_kind = TagKind.WILDCARD
+				t_trim = t_trim[2:]
+			elif t_trim.startswith('r/'):
+				tag_kind = TagKind.REGEX
+				t_trim = t_trim[2:]
 			if len(t_trim) > 0:
-				result.append(t_trim)
+				tag_pattern = TagPattern(t_trim, tag_kind)
+				result.add(tag_pattern)
 		return result
 
 	def save_config(self):
@@ -250,6 +274,58 @@ class PhotoTagsConfig(object):
 
 class PhotoTagsException(Exception):
 	pass
+
+class TagKind(enum.Enum):
+	LITERAL = 0
+	WILDCARD = 1
+	REGEX = 2
+
+class TagPattern(object):
+	def __init__(self, tag_pattern:str, tag_kind:TagKind=TagKind.LITERAL):
+		self.tag_kind = tag_kind
+		self.tag_pattern = tag_pattern
+		self.regex = None
+
+	def matches(self, tag_value):
+		if self.tag_kind == TagKind.LITERAL:
+			return tag_value == self.tag_pattern
+		if self.regex is None:
+			self.create_regex()
+		return self.regex.match(tag_value) is not None
+
+	def create_regex(self):
+		expr = self.tag_pattern
+		if self.tag_kind == TagKind.WILDCARD:
+			# convert the pattern from a wildcard to a regex expression
+			for c in '.^$+{}[]\|()':
+				expr = expr.replace(c, "\\"+c)
+			expr = expr.replace('\\', '\\\\')
+			expr = expr.replace ('*', '.*')
+			expr = expr.replace('?', '.')
+		expr = "^"+expr+"$"
+		self.regex = re.compile(expr)
+
+	def __str__(self):
+		return "%s (%s)" % (self.tag_pattern, str(self.tag_kind))
+
+class TagPatterns(object):
+	def __init__(self):
+		self.tag_literals = {}
+		self.tag_regexes = []
+
+	def add(self, tag_pattern: TagPattern):
+		if tag_pattern.tag_kind == TagKind.LITERAL:
+			self.tag_literals[tag_pattern.tag_pattern] = tag_pattern
+		else:
+			self.tag_regexes.append(tag_pattern)
+		
+	def __contains__(self, value):
+		if value in self.tag_literals:
+			return True
+		for p in self.tag_regexes:
+			if p.matches(value):
+				return True
+		return False
 
 if __name__ == '__main__':
 	error_count = main()

@@ -165,7 +165,7 @@ class PhotoTagsCallback(object):
 		self.name = name
 		self.data = data
 
-def foo(): #TODO: REMOVE THIS
+def debug(): 
 	patterns = ['abc', 'ab?', 'a*', 'a\\nbc', 'a[bc]+']
 	kinds = [TagKind.LITERAL, TagKind.WILDCARD, TagKind.REGEX]
 	vals = ['abc', 'a\nbc', 'abbcc']
@@ -179,12 +179,13 @@ def foo(): #TODO: REMOVE THIS
 		print("%s : %s: %s" % (str(t), v, found))
 
 def main():
-	#foo() #TODO: REMOVE THIS
-	#return
 	try:
 		parser = initArgParser()
 		parser.add_argument('targ_arg', help="File or directory to check")
 		args = parser.parse_args()
+		if args.debug:
+			debug()
+			return
 		config = PhotoTagsConfig()
 		config.read_config(args.config)
 		photo_tags = PhotoTags(args=args, 
@@ -289,41 +290,55 @@ class TagPattern(object):
 	def matches(self, tag_value):
 		if self.tag_kind == TagKind.LITERAL:
 			return tag_value == self.tag_pattern
-		if self.regex is None:
-			self.create_regex()
+		self.create_regex()
 		return self.regex.match(tag_value) is not None
 
 	def create_regex(self):
-		expr = self.tag_pattern
-		if self.tag_kind == TagKind.WILDCARD:
-			# convert the pattern from a wildcard to a regex expression
-			for c in '.^$+{}[]\|()':
-				expr = expr.replace(c, "\\"+c)
-			expr = expr.replace('\\', '\\\\')
-			expr = expr.replace ('*', '.*')
-			expr = expr.replace('?', '.')
-		expr = "^"+expr+"$"
-		self.regex = re.compile(expr)
+		if self.regex is None:
+			expr = self.tag_pattern
+			if self.tag_kind == TagKind.WILDCARD:
+				# convert the pattern from a wildcard to a regex expression
+				for c in '.^$+{}[]\|()':
+					expr = expr.replace(c, "\\"+c)
+				expr = expr.replace('\\', '\\\\')
+				expr = expr.replace ('*', '.*')
+				expr = expr.replace('?', '.')
+			if expr[0] != "^":
+				expr = "^"+expr+"$"
+			self.regex = re.compile(expr)
+
+	def __eq__(self, other):
+		if not isinstance(other, TagPattern):
+			return False
+		return self.tag_kind == other.tag_kind and self.tag_pattern == other.tag_pattern
 
 	def __str__(self):
 		return "%s (%s)" % (self.tag_pattern, str(self.tag_kind))
 
 class TagPatterns(object):
-	def __init__(self):
-		self.tag_literals = {}
-		self.tag_regexes = []
+	def __init__(self, literals={}, regexes={}):
+		self.tag_literals = literals
+		self.tag_regexes = regexes
+
+	def __add__(self, other):
+		if isinstance(other, TagPatterns):
+			result = TagPatterns(literals={**self.tag_literals, **other.tag_literals}, 
+						regexes={**self.tag_regexes, **other.tag_regexes})
+			# Check https://stackoverflow.com/questions/9819602/union-of-dict-objects-in-python
+			return result
 
 	def add(self, tag_pattern: TagPattern):
 		if tag_pattern.tag_kind == TagKind.LITERAL:
 			self.tag_literals[tag_pattern.tag_pattern] = tag_pattern
 		else:
-			self.tag_regexes.append(tag_pattern)
+			tag_pattern.create_regex()
+			self.tag_regexes[tag_pattern.regex.pattern] = tag_pattern
 		
 	def __contains__(self, value):
 		if value in self.tag_literals:
 			return True
 		for p in self.tag_regexes:
-			if p.matches(value):
+			if self.tag_regexes[p].matches(value):
 				return True
 		return False
 

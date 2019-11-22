@@ -8,18 +8,20 @@ import logging
 
 class PhotoTags(object):
 	def __init__(self, target_required=False, callback=None, args=None,
-				tags_allowed=[], tags_required=[]):
+				tags=None):
 		self.error_count = 0
 		self.total_files = 0
-		self.tags_allowed = tags_allowed
-		self.tags_required = tags_required
+		if tags is None:
+			self.tags = []
+		else:
+			self.tags = tags
 		self.args = args
 		self.callback = callback
 		self.init_logging()
 
 	def process_target(self, target=None):
 		self.stop = False
-		self.tag_stats = Tag_Stats(self.tags_allowed, self.tags_required, self.callback)
+		self.tag_stats = Tag_Stats(self.tags, self.callback)
 		self.total_files = 0
 		if target is None:
 			target = self.args.targ_arg
@@ -86,13 +88,12 @@ class PhotoTags(object):
 			self.callback(name, data)
 
 class Tag_Stats(object):
-	def __init__(self, tags_allowed, tags_required, callback):
+	def __init__(self, tags, callback):
 		self.freq_dict = {}
 		self.bad_tags = []
 		self.missing_tags = []
 		self.xpkeywords = []
-		self.tags_allowed = tags_allowed
-		self.tags_required = tags_required
+		self.tags = tags
 
 	def get_tags(self, fn):
 		iptc_info = IPTCInfo(fn)
@@ -120,17 +121,17 @@ class Tag_Stats(object):
 	
 	def check_allowed(self, fn, tags):
 		bad_tags = []
-		if self.tags_allowed is not None:
+		if self.tags is not None:
 			for tag in tags:
-				if tag not in self.tags_allowed and tag not in self.tags_required:
+				if tag not in self.tags:
 					self.bad_tags.append((fn, tag))
 					bad_tags.append(tag)
 		return bad_tags
 
 	def check_required(self, fn, tags):
 		missing_tags = []
-		if self.tags_required is not None:
-			for tag_required in self.tags_required:
+		if self.tags is not None:
+			for tag in self.tags:
 				if tag_required not in tags:
 					self.missing_tags.append((fn, tag_required))
 					missing_tags.append(tag_required)
@@ -188,9 +189,7 @@ def main():
 			return
 		config = PhotoTagsConfig()
 		config.read_config(args.config)
-		photo_tags = PhotoTags(args=args, 
-						tags_allowed=config.tags_allowed,
-						tags_required=config.tags_required)
+		photo_tags = PhotoTags(args=args, tags=config.tags)
 		if args.debug:
 			photo_tags.logger.setLevel(logging.DEBUG)
 		error_count = photo_tags.process_target()
@@ -228,8 +227,7 @@ class PhotoTagsConfig(object):
 	def __init__(self):
 		self.config_parser = configparser.ConfigParser()
 		self.config_ini = None
-		self.tags_required = TagPatterns()
-		self.tags_allowed = TagPatterns()
+		self.tags = TagPatterns()
 
 	def read_config(self, config_ini="phototags.ini"):
 		self.config_ini = config_ini
@@ -237,15 +235,16 @@ class PhotoTagsConfig(object):
 			self.config_parser.read(config_ini)
 			if self.config_parser.has_section("Tags"):
 				option = self.config_parser.get("Tags", "required")
-				self.tags_required = self.option2tags(option)
+				tags_required = self.option2tags(option, True)
 				option = self.config_parser.get("Tags", "allowed")
-				self.tags_allowed = self.option2tags(option)
+				tags_allowed = self.option2tags(option, False)
+				self.tags = tags_required + tags_allowed
 			else:
 				raise PhotoTagsException("Configuration is missing a [Tags] section")
 		else:
 			raise PhotoTagsException("Missing config file '%s'" % (config_ini), config_ini)
 
-	def option2tags(self, option):
+	def option2tags(self, option, is_required):
 		arr = option.split("\n")
 		result = TagPatterns()
 		for t in arr:
@@ -258,7 +257,7 @@ class PhotoTagsConfig(object):
 				tag_kind = TagKind.REGEX
 				t_trim = t_trim[2:]
 			if len(t_trim) > 0:
-				tag_pattern = TagPattern(t_trim, tag_kind)
+				tag_pattern = TagPattern(t_trim, tag_kind, is_required)
 				result.add(tag_pattern)
 		return result
 
@@ -266,8 +265,10 @@ class PhotoTagsConfig(object):
 		file = open(self.config_ini, "w")
 		if not self.config_parser.has_section("Tags"):
 			self.config_parser.add_section("Tags")
-		self.config_parser.set("Tags", "allowed", "\n".join(self.tags_allowed))
-		self.config_parser.set("Tags", "required", "\n".join(self.tags_required))
+		tags_allowed = [t.ini_pattern() for t in self.tags if not t.is_required]
+		tags_required = [t.ini_pattern() for t in self.tags if t.is_required]
+		self.config_parser.set("Tags", "allowed", "\n".join(tags_allowed))
+		self.config_parser.set("Tags", "required", "\n".join(tags_required))
 		time_str = datetime.datetime.now().strftime("%H:%M%p on %B %d, %Y")
 		file.write("# This file was generated at %s\n\n" % (time_str))
 		self.config_parser.write(file, False)
@@ -282,18 +283,18 @@ class TagKind(enum.Enum):
 	REGEX = 2
 
 class TagPattern(object):
-	def __init__(self, tag_pattern:str, tag_kind:TagKind=TagKind.LITERAL):
+	def __init__(self, tag_pattern:str, tag_kind:TagKind=TagKind.LITERAL, is_required=False):
 		self.tag_kind = tag_kind
 		self.tag_pattern = tag_pattern
 		self.regex = None
+		self.is_required = is_required
 
 	def matches(self, tag_value):
 		if self.tag_kind == TagKind.LITERAL:
 			return tag_value == self.tag_pattern
-		self.create_regex()
-		return self.regex.match(tag_value) is not None
+		return self.get_regex().match(tag_value) is not None
 
-	def create_regex(self):
+	def get_regex(self):
 		if self.regex is None:
 			expr = self.tag_pattern
 			if self.tag_kind == TagKind.WILDCARD:
@@ -303,44 +304,57 @@ class TagPattern(object):
 				expr = expr.replace('\\', '\\\\')
 				expr = expr.replace ('*', '.*')
 				expr = expr.replace('?', '.')
+			elif self.tag_kind == TagKind.LITERAL:
+				pass #TODO: escape the metachars
 			if expr[0] != "^":
 				expr = "^"+expr+"$"
 			self.regex = re.compile(expr)
+		return self.regex
 
 	def __eq__(self, other):
 		if not isinstance(other, TagPattern):
 			return False
-		return self.tag_kind == other.tag_kind and self.tag_pattern == other.tag_pattern
+		return self.tag_kind == other.tag_kind and self.tag_pattern == other.tag_pattern and self.is_required == other.is_required
 
 	def __str__(self):
-		return "%s (%s)" % (self.tag_pattern, str(self.tag_kind))
+		required_str = ""
+		if self.is_required:
+			required_str = "required"
+		return "%s (%s) %s" % (self.tag_pattern, str(self.tag_kind), required_str)
+
+	def ini_pattern(self):
+		if self.tag_kind == TagKind.LITERAL:
+			return self.tag_pattern
+		if self.tag_kind == TagKind.WILDCARD:
+			return "w/"+self.tag_pattern
+		if self.tag_kind == TagKind.REGEX:
+			return "r/"+self.tag_pattern
+		raise AttributeError
 
 class TagPatterns(object):
-	def __init__(self, literals={}, regexes={}):
-		self.tag_literals = literals
-		self.tag_regexes = regexes
+	def __init__(self):
+		self.tags = []
 
 	def __add__(self, other):
 		if isinstance(other, TagPatterns):
-			result = TagPatterns(literals={**self.tag_literals, **other.tag_literals}, 
-						regexes={**self.tag_regexes, **other.tag_regexes})
-			# Check https://stackoverflow.com/questions/9819602/union-of-dict-objects-in-python
-			return result
+			result = TagPatterns()
+			result.tags = self.tags + other.tags
+			return result;
+
+	def __len__(self):
+		return len(self.tags)
 
 	def add(self, tag_pattern: TagPattern):
-		if tag_pattern.tag_kind == TagKind.LITERAL:
-			self.tag_literals[tag_pattern.tag_pattern] = tag_pattern
-		else:
-			tag_pattern.create_regex()
-			self.tag_regexes[tag_pattern.regex.pattern] = tag_pattern
+		self.tags.append(tag_pattern)
 		
 	def __contains__(self, value):
-		if value in self.tag_literals:
-			return True
-		for p in self.tag_regexes:
-			if self.tag_regexes[p].matches(value):
+		for t in self:
+			if t.matches(value):
 				return True
 		return False
+
+	def __iter__(self):
+		return iter(self.tags)
 
 if __name__ == '__main__':
 	error_count = main()

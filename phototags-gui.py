@@ -9,7 +9,7 @@
 
 # begin wxGlade: extracode
 import phototags
-import logging, os, sys, threading, wx
+import logging, os, sys, random, threading, wx
 import wx.grid as gridlib
 # end wxGlade
 
@@ -27,9 +27,10 @@ class TagsConfigFrame(wx.Frame):
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		
 		self.grid_config = wx.grid.Grid(self, wx.ID_ANY, size=(1, 1))
-		self.grid_config.CreateGrid(0, 2)
+		self.grid_config.CreateGrid(0, 3)
 		self.grid_config.SetColLabelValue(0, "Tag")
 		self.grid_config.SetColLabelValue(1, "Required")
+		self.grid_config.SetColLabelValue(2, "Kind")
 		sizer_1.Add(self.grid_config, 1, wx.EXPAND, 0)
 		
 		sizer_18 = wx.BoxSizer(wx.HORIZONTAL)
@@ -62,22 +63,36 @@ class TagsConfigFrame(wx.Frame):
 
 	def set_config(self, config):
 		self.config = config
-		all_tags = sorted(set(config.tags_allowed + config.tags_required))
+		grid_table = TagConfigTable(config)
+		all_tags = config.tags_allowed + config.tags_required
 		self.grid_config.SetDefaultCellOverflow(False)
 		attr = gridlib.GridCellAttr()
 		attr.SetEditor(gridlib.GridCellBoolEditor())
 		attr.SetRenderer(gridlib.GridCellBoolRenderer())
 		self.grid_config.SetColAttr(1, attr)
+		tag_kind_strings = ("literal", "wildcard", "regex")
+		tag_kind_choices = ",".join(tag_kind_strings)
+		attr = gridlib.GridCellAttr()
+		attr.SetEditor(gridlib.GridCellEnumEditor(choices=tag_kind_choices))
+#		renderer = gridlib.GridCellEnumRenderer(tag_kind_choices)
+#		renderer.SetParameters(tag_kind_choices)
+		renderer = TagKindRenderer()
+		attr.SetRenderer(renderer)
+#		attr.SetRenderer(gridlib.GridCellEnumRenderer(choices=tag_kind_choices))
+		self.grid_config.SetColAttr(2, attr)
 		excess = len(all_tags) - self.grid_config.GetNumberRows()
 		if excess > 0:
 			self.grid_config.AppendRows(excess)
 		row_num = 0
 		for tag in all_tags:
-			self.grid_config.SetCellValue(row_num, 0, tag)
+			pattern = tag.tag_pattern
+			self.grid_config.SetCellValue(row_num, 0, pattern)
 			cell_value = ""
 			if tag in config.tags_required:
 				cell_value = "1"
 			self.grid_config.SetCellValue(row_num, 1, cell_value)
+			kind = tag.tag_kind
+			self.grid_config.SetCellValue(row_num, 2, str(kind.value))
 			row_num += 1
 
 	def set_close_handler(self, close_handler):
@@ -137,8 +152,83 @@ class TagsConfigFrame(wx.Frame):
 			self.config.tags_allowed = tags_allowed
 			self.config.tags_required = tags_required
 		return errors
-
 # end of class TagsConfigFrame
+
+class TagKindRenderer(wx.grid.GridCellEnumRenderer):
+	def __init__(self):
+		strings = ("literal", "wildcard", "regex")
+		self.tag_kind_strings = strings
+		choices = ",".join(strings)
+		super().__init__(choices=choices)
+
+	def Draw(self, grid, attr, dc, rect, row, col, isSelected):
+#		super(wx.grid.GridCellEnumRenderer, self).Draw(grid, attr, dc, rect, row, col, isSelected)
+#		return
+		cell_text = grid.GetCellValue(row, col)
+		val = int(cell_text)
+		text = self.tag_kind_strings[val]
+		hAlign, vAlign = attr.GetAlignment()
+#		self.DrawText(grid, dc, rect, "asdf", hAlign, vAlign)
+#		return
+		#dc.SetBrush(wx.Brush(bg, wx.SOLID))
+		#dc.SetPen(wx.TRANSPARENT_PEN)
+		#dc.DrawRectangleRect(rect)           
+		grid.DrawTextRectangle(dc, text, rect, hAlign, vAlign)
+
+class TagConfigTable(wx.grid.GridTableBase):
+	def __init__(self, config):
+		self.config = config
+		all_tags = config.tags_allowed + config.tags_required
+		self.tags = [tag for tag in all_tags]
+		self.kind_map = {phototags.TagKind.LITERAL: 'literal', 
+						phototags.TagKind.WILDCARD: 'wildcard', 
+						phototags.TagKind.REGEX: 'regex'}
+
+	def GetValue(self, row, col):
+		"""
+		GetValue(row, col) -> PyObject
+		
+		Must be overridden to implement accessing the table values as text.
+		"""
+		t = self.tags[row]
+		if col == 0:
+			return t.ini_pattern()
+		if col == 1:
+			if t in self.config.tags_required:
+				return "1"
+			return "0"
+		if col == 2:
+			return self.kind_map[t.tag_kind]
+		raise ValueError
+
+	def SetValue(self, row, col, value):
+		"""
+		SetValue(row, col, value)
+		
+		Must be overridden to implement setting the table values as text.
+		"""
+		t = self.tags[row]
+		if col == 0:
+			t.tag_pattern = value
+		elif col == 1:
+			if t in self.config.tags_required:
+				if value == "0":
+					
+	def GetNumberRows(self):
+		"""
+		GetNumberRows() -> int
+		
+		Must be overridden to return the number of rows in the table.
+		"""
+
+	def GetNumberCols(self):
+		"""
+		GetNumberCols() -> int
+		
+		Must be overridden to return the number of columns in the table.
+		"""
+	
+
 class MainWindow(wx.Frame):
 	def __init__(self, *args, **kwds):
 		# begin wxGlade: MainWindow.__init__
@@ -563,7 +653,7 @@ class MainWindow(wx.Frame):
 			row_num = 0
 			for row in rows:
 				self.grid_tags_missing.SetCellValue(row_num, 0, row[0])
-				self.grid_tags_missing.SetCellValue(row_num, 1, ", ".join(row[1]))
+				self.grid_tags_missing.SetCellValue(row_num, 1, ", ".join([p.ini_pattern() for p in row[1]]))
 				attr = gridlib.GridCellAttr()
 				attr.SetReadOnly(True)
 				self.grid_tags_missing.SetRowAttr(row_num, attr)

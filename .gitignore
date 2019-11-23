@@ -1,4 +1,5 @@
 .vscode/launch.json
+.vscode/.ropeproject
 *.pyc
 build/
 phototags.spec

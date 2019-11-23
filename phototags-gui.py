@@ -53,6 +53,7 @@ class TagsConfigFrame(wx.Frame):
 		self.Layout()
 
 		self.Bind(wx.grid.EVT_GRID_CMD_CELL_CHANGED, self.on_cell_changed, self.grid_config)
+		self.Bind(wx.grid.EVT_GRID_CMD_CELL_CHANGING, self.on_cell_changing, self.grid_config)
 		self.Bind(wx.EVT_BUTTON, self.on_add, self.button_add)
 		self.Bind(wx.EVT_BUTTON, self.on_apply, self.button_apply)
 		self.Bind(wx.EVT_BUTTON, self.on_save, self.button_save)
@@ -132,6 +133,20 @@ class TagsConfigFrame(wx.Frame):
 			self.config.tags_allowed = tags_allowed
 			self.config.tags_required = tags_required
 		return errors
+
+	def on_cell_changing(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
+		row = event.GetRow()
+		col = event.GetCol()
+		if col == 0:
+			# Test for regular expression
+			tagp_curr = self.grid_config.GetTable().get_tag_pattern(row)
+			val = event.GetString()
+			if len(val) > 0:
+				tagp_new = phototags.TagPattern(val, tagp_curr.tag_kind, tagp_curr.is_required)
+				if not tagp_new.is_pattern_valid():
+						event.Veto()
+		return False
+
 # end of class TagsConfigFrame
 
 class TagConfigTable(wx.grid.GridTableBase):
@@ -146,6 +161,9 @@ class TagConfigTable(wx.grid.GridTableBase):
 		self.col_names = ["Tag", "Required", "Kind"]
 		self._rows = self.GetNumberRows()
 		self._cols = self.GetNumberCols()
+
+	def get_tag_pattern(self, idx):
+		return self.tags[idx]
 
 	def GetValue(self, row, col):
 		"""
@@ -801,7 +819,7 @@ class PhotoTagsThread(threading.Thread):
 
 	def run(self):
 		self.photo_tags = phototags.PhotoTags(target_required=False, callback=self.callback, args=self.args, 
-					tags_allowed=self.config.tags_allowed, tags_required=self.config.tags_required)
+					tag_patterns=self.config.tag_patterns)
 		if self.args.debug:
 			self.photo_tags.logger.setLevel(logging.DEBUG)
 		self.errorCount = self.photo_tags.process_target(self.target)

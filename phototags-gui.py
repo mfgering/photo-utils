@@ -36,15 +36,11 @@ class TagsConfigFrame(wx.Frame):
 		sizer_18 = wx.BoxSizer(wx.HORIZONTAL)
 		sizer_1.Add(sizer_18, 0, wx.ALL, 15)
 		
-		self.button_add = wx.Button(self, wx.ID_ANY, "Add")
+		self.button_add = wx.Button(self, wx.ID_ANY, "Add Pattern")
 		self.button_add.SetToolTip("Add a row")
 		sizer_18.Add(self.button_add, 0, 0, 0)
 		
-		self.button_apply = wx.Button(self, wx.ID_ANY, "Apply")
-		self.button_apply.SetToolTip("Apply settings to current configuration")
-		sizer_18.Add(self.button_apply, 0, 0, 0)
-		
-		self.button_save = wx.Button(self, wx.ID_ANY, "Save...")
+		self.button_save = wx.Button(self, wx.ID_ANY, "Save to File ...")
 		self.button_save.SetToolTip("Save to file")
 		sizer_18.Add(self.button_save, 0, 0, 0)
 		
@@ -55,7 +51,6 @@ class TagsConfigFrame(wx.Frame):
 		self.Bind(wx.grid.EVT_GRID_CMD_CELL_CHANGED, self.on_cell_changed, self.grid_config)
 		self.Bind(wx.grid.EVT_GRID_CMD_CELL_CHANGING, self.on_cell_changing, self.grid_config)
 		self.Bind(wx.EVT_BUTTON, self.on_add, self.button_add)
-		self.Bind(wx.EVT_BUTTON, self.on_apply, self.button_apply)
 		self.Bind(wx.EVT_BUTTON, self.on_save, self.button_save)
 		# end wxGlade
 		self.dirty = False
@@ -92,11 +87,6 @@ class TagsConfigFrame(wx.Frame):
 		if answer == wx.ID_YES:
 			self.close_handler(event)
 
-	def on_apply(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
-		errors = self.apply2config()
-		if errors == 0:
-			self.frame_tags_config_statusbar.SetStatusText("Tag info is applied (but not saved)")
-
 	def on_save(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
 		try:
 			errors = self.apply2config()
@@ -114,25 +104,7 @@ class TagsConfigFrame(wx.Frame):
 		self.dirty = True
 
 	def apply2config(self):
-		tags_allowed = []
-		tags_required = []
-		errors = 0
-		for row_num in range(0, self.grid_config.GetNumberRows()):
-			tag = self.grid_config.GetCellValue(row_num, 0)
-			if len(tag) > 0:
-				prop = self.grid_config.GetCellValue(row_num, 1)
-				if tag in tags_allowed or tag in tags_required:
-					self.frame_tags_config_statusbar.SetStatusText("Error: Duplicate tag %s" % (tag))
-					errors += 1
-				else:
-					if prop == '1':
-						tags_required.append(tag)
-					else:
-						tags_allowed.append(tag)
-		if errors == 0:
-			self.config.tags_allowed = tags_allowed
-			self.config.tags_required = tags_required
-		return errors
+		return self.grid_config.GetTable().apply2config()
 
 	def on_cell_changing(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
 		row = event.GetRow()
@@ -145,6 +117,13 @@ class TagsConfigFrame(wx.Frame):
 				tagp_new = phototags.TagPattern(val, tagp_curr.tag_kind, tagp_curr.is_required)
 				if not tagp_new.is_pattern_valid():
 						event.Veto()
+						kind = "wildcard"
+						if tagp_new.tag_kind == phototags.TagKind.REGEX:
+							kind = "regex"
+						dlg = wx.MessageDialog(self, "The pattern '%s' is invalid for a %s." % (val, kind), 
+							"Error", wx.OK | wx.ICON_ERROR)
+						dlg.ShowModal()
+
 		return False
 
 # end of class TagsConfigFrame
@@ -222,7 +201,7 @@ class TagConfigTable(wx.grid.GridTableBase):
 		for i in range(0, numRows):
 			tagp = phototags.TagPattern("", phototags.TagKind.LITERAL, False)
 			self.tags.append(tagp)
-			self.config.tags.add(tagp)
+			self.config.tag_patterns.add(tagp)
 		self.ResetView(self.GetView())
 		return True
 
@@ -257,12 +236,13 @@ class TagConfigTable(wx.grid.GridTableBase):
 		grid.AdjustScrollbars()
 		grid.ForceRefresh()
 
-
 	def UpdateValues(self, grid):
 		"""Update all displayed values"""
 		# This sends an event to the grid table to update all of the values
 		msg = Grid.GridTableMessage(self, Grid.GRIDTABLE_REQUEST_VIEW_GET_VALUES)
 		grid.ProcessTableMessage(msg)
+
+
 
 class MainWindow(wx.Frame):
 	def __init__(self, *args, **kwds):

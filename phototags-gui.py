@@ -10,7 +10,7 @@
 # begin wxGlade: extracode
 import phototags
 import logging, os, sys, threading, wx
-import wx.grid as gridlib
+import wx.grid as Grid
 # end wxGlade
 
 class TagsConfigFrame(wx.Frame):
@@ -27,9 +27,10 @@ class TagsConfigFrame(wx.Frame):
 		sizer_1 = wx.BoxSizer(wx.VERTICAL)
 		
 		self.grid_config = wx.grid.Grid(self, wx.ID_ANY, size=(1, 1))
-		self.grid_config.CreateGrid(0, 2)
+		self.grid_config.CreateGrid(0, 3)
 		self.grid_config.SetColLabelValue(0, "Tag")
 		self.grid_config.SetColLabelValue(1, "Required")
+		self.grid_config.SetColLabelValue(2, "Kind")
 		sizer_1.Add(self.grid_config, 1, wx.EXPAND, 0)
 		
 		sizer_18 = wx.BoxSizer(wx.HORIZONTAL)
@@ -52,6 +53,7 @@ class TagsConfigFrame(wx.Frame):
 		self.Layout()
 
 		self.Bind(wx.grid.EVT_GRID_CMD_CELL_CHANGED, self.on_cell_changed, self.grid_config)
+		self.Bind(wx.grid.EVT_GRID_CMD_CELL_CHANGING, self.on_cell_changing, self.grid_config)
 		self.Bind(wx.EVT_BUTTON, self.on_add, self.button_add)
 		self.Bind(wx.EVT_BUTTON, self.on_apply, self.button_apply)
 		self.Bind(wx.EVT_BUTTON, self.on_save, self.button_save)
@@ -62,23 +64,19 @@ class TagsConfigFrame(wx.Frame):
 
 	def set_config(self, config):
 		self.config = config
-		all_tags = sorted(set(config.tags_allowed + config.tags_required))
+		grid_table = TagConfigTable(config)
+		self.grid_config.SetTable(grid_table, True)
 		self.grid_config.SetDefaultCellOverflow(False)
-		attr = gridlib.GridCellAttr()
-		attr.SetEditor(gridlib.GridCellBoolEditor())
-		attr.SetRenderer(gridlib.GridCellBoolRenderer())
+		attr = Grid.GridCellAttr()
+		attr.SetEditor(Grid.GridCellBoolEditor())
+		attr.SetRenderer(Grid.GridCellBoolRenderer())
 		self.grid_config.SetColAttr(1, attr)
-		excess = len(all_tags) - self.grid_config.GetNumberRows()
-		if excess > 0:
-			self.grid_config.AppendRows(excess)
-		row_num = 0
-		for tag in all_tags:
-			self.grid_config.SetCellValue(row_num, 0, tag)
-			cell_value = ""
-			if tag in config.tags_required:
-				cell_value = "1"
-			self.grid_config.SetCellValue(row_num, 1, cell_value)
-			row_num += 1
+		tag_kind_strings = ("literal", "wildcard", "regex")
+		tag_kind_choices = ",".join(tag_kind_strings)
+		attr = Grid.GridCellAttr()
+		attr.SetEditor(Grid.GridCellEnumEditor(choices=tag_kind_choices))
+		attr.SetRenderer(Grid.GridCellEnumRenderer(choices=tag_kind_choices))
+		self.grid_config.SetColAttr(2, attr)
 
 	def set_close_handler(self, close_handler):
 		self.close_handler = close_handler
@@ -111,8 +109,6 @@ class TagsConfigFrame(wx.Frame):
 
 	def on_add(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
 		self.grid_config.AppendRows()
-		w, h = self.GetClientSize()
-		self.SetSize((w, h))
 
 	def on_cell_changed(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
 		self.dirty = True
@@ -138,7 +134,136 @@ class TagsConfigFrame(wx.Frame):
 			self.config.tags_required = tags_required
 		return errors
 
+	def on_cell_changing(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
+		row = event.GetRow()
+		col = event.GetCol()
+		if col == 0:
+			# Test for regular expression
+			tagp_curr = self.grid_config.GetTable().get_tag_pattern(row)
+			val = event.GetString()
+			if len(val) > 0:
+				tagp_new = phototags.TagPattern(val, tagp_curr.tag_kind, tagp_curr.is_required)
+				if not tagp_new.is_pattern_valid():
+						event.Veto()
+		return False
+
 # end of class TagsConfigFrame
+
+class TagConfigTable(wx.grid.GridTableBase):
+
+	def __init__(self, config):
+		super().__init__()
+		self.config = config
+		self.tags = [tag for tag in config.tags]
+		self.kind_map = {phototags.TagKind.LITERAL: 'literal', 
+						phototags.TagKind.WILDCARD: 'wildcard', 
+						phototags.TagKind.REGEX: 'regex'}
+		self.col_names = ["Tag", "Required", "Kind"]
+		self._rows = self.GetNumberRows()
+		self._cols = self.GetNumberCols()
+
+	def get_tag_pattern(self, idx):
+		return self.tags[idx]
+
+	def GetValue(self, row, col):
+		"""
+		GetValue(row, col) -> PyObject
+		
+		Must be overridden to implement accessing the table values as text.
+		"""
+		t = self.tags[row]
+		if col == 0:
+			return t.tag_pattern
+		if col == 1:
+			if t.is_required:
+				return "1"
+			return "0"
+		if col == 2:
+			return self.kind_map[t.tag_kind]
+		raise ValueError
+
+	def SetValue(self, row, col, value):
+		"""
+		SetValue(row, col, value)
+		
+		Must be overridden to implement setting the table values as text.
+		"""
+		t = self.tags[row]
+		if col == 0:
+			t.tag_pattern = value
+		elif col == 1:
+			if value == "1":
+				t.is_required = True
+			else:
+				t.is_required = False
+		elif col == 2:
+			t.tag_kind = phototags.TagKind(int(value))
+
+	def GetNumberRows(self):
+		"""
+		GetNumberRows() -> int
+		
+		Must be overridden to return the number of rows in the table.
+		"""
+		return len(self.tags)
+
+	def GetNumberCols(self):
+		"""
+		GetNumberCols() -> int
+		
+		Must be overridden to return the number of columns in the table.
+		"""
+		return len(self.col_names)
+
+	def GetColLabelValue(self, col):
+		return self.col_names[col]
+
+	def AppendRows(self, numRows=1):
+		for i in range(0, numRows):
+			tagp = phototags.TagPattern("", phototags.TagKind.LITERAL, False)
+			self.tags.append(tagp)
+			self.config.tags.add(tagp)
+		self.ResetView(self.GetView())
+		return True
+
+	def ResetView(self, grid):
+		"""
+		(Grid) -> Reset the grid view.   Call this to
+		update the grid if rows and columns have been added or deleted
+		"""
+		grid.BeginBatch()
+
+		for current, new, delmsg, addmsg in [
+			(self._rows, self.GetNumberRows(), Grid.GRIDTABLE_NOTIFY_ROWS_DELETED, Grid.GRIDTABLE_NOTIFY_ROWS_APPENDED),
+			(self._cols, self.GetNumberCols(), Grid.GRIDTABLE_NOTIFY_COLS_DELETED, Grid.GRIDTABLE_NOTIFY_COLS_APPENDED),
+		]:
+
+			if new < current:
+				msg = Grid.GridTableMessage(self,delmsg,new,current-new)
+				grid.ProcessTableMessage(msg)
+			elif new > current:
+				msg = Grid.GridTableMessage(self,addmsg,new-current)
+				grid.ProcessTableMessage(msg)
+				self.UpdateValues(grid)
+
+		grid.EndBatch()
+
+		self._rows = self.GetNumberRows()
+		self._cols = self.GetNumberCols()
+		# update the column rendering plugins
+		#self._updateColAttrs(grid)
+
+		# update the scrollbars and the displayed part of the grid
+		grid.AdjustScrollbars()
+		grid.ForceRefresh()
+
+
+	def UpdateValues(self, grid):
+		"""Update all displayed values"""
+		# This sends an event to the grid table to update all of the values
+		msg = Grid.GridTableMessage(self, Grid.GRIDTABLE_REQUEST_VIEW_GET_VALUES)
+		grid.ProcessTableMessage(msg)
+
 class MainWindow(wx.Frame):
 	def __init__(self, *args, **kwds):
 		# begin wxGlade: MainWindow.__init__
@@ -496,7 +621,6 @@ class MainWindow(wx.Frame):
 	def reset_results(self):
 		self.tag_info = []
 		self.fileCount = 0
-		self.filename = None #TODO: DELETE?
 		self.static_text_tags_header.SetLabelText("No results yet")
 		self.static_text_tags_missing_header.SetLabelText("No results yet")
 		self.static_text_tags_bad_header.SetLabelText("No results yet")
@@ -540,7 +664,7 @@ class MainWindow(wx.Frame):
 			for row in self.tag_info:
 				self.grid_tags.SetCellValue(row_num, 0, row[0])
 				self.grid_tags.SetCellValue(row_num, 1, ", ".join(row[1]))
-				attr = gridlib.GridCellAttr()
+				attr = Grid.GridCellAttr()
 				attr.SetReadOnly(True)
 				self.grid_tags.SetRowAttr(row_num, attr)
 				row_num += 1
@@ -563,8 +687,8 @@ class MainWindow(wx.Frame):
 			row_num = 0
 			for row in rows:
 				self.grid_tags_missing.SetCellValue(row_num, 0, row[0])
-				self.grid_tags_missing.SetCellValue(row_num, 1, ", ".join(row[1]))
-				attr = gridlib.GridCellAttr()
+				self.grid_tags_missing.SetCellValue(row_num, 1, ", ".join([p.ini_pattern() for p in row[1]]))
+				attr = Grid.GridCellAttr()
 				attr.SetReadOnly(True)
 				self.grid_tags_missing.SetRowAttr(row_num, attr)
 				row_num += 1
@@ -588,7 +712,7 @@ class MainWindow(wx.Frame):
 			for row in rows:
 				self.grid_tags_bad.SetCellValue(row_num, 0, row[0])
 				self.grid_tags_bad.SetCellValue(row_num, 1, ", ".join(row[1]))
-				attr = gridlib.GridCellAttr()
+				attr = Grid.GridCellAttr()
 				attr.SetReadOnly(True)
 				self.grid_tags_bad.SetRowAttr(row_num, attr)
 				row_num += 1
@@ -612,7 +736,7 @@ class MainWindow(wx.Frame):
 			for row in rows:
 				self.grid_tags_freq.SetCellValue(row_num, 0, row[0])
 				self.grid_tags_freq.SetCellValue(row_num, 1, str(row[1]))
-				attr = gridlib.GridCellAttr()
+				attr = Grid.GridCellAttr()
 				attr.SetReadOnly(True)
 				self.grid_tags_freq.SetRowAttr(row_num, attr)
 				row_num += 1
@@ -695,7 +819,7 @@ class PhotoTagsThread(threading.Thread):
 
 	def run(self):
 		self.photo_tags = phototags.PhotoTags(target_required=False, callback=self.callback, args=self.args, 
-					tags_allowed=self.config.tags_allowed, tags_required=self.config.tags_required)
+					tag_patterns=self.config.tag_patterns)
 		if self.args.debug:
 			self.photo_tags.logger.setLevel(logging.DEBUG)
 		self.errorCount = self.photo_tags.process_target(self.target)

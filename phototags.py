@@ -1,24 +1,27 @@
 from iptcinfo3 import IPTCInfo
 import datetime
+import enum
 import exifread
 import configparser
-import argparse, os, sys
+import argparse, os, re, sys
 import logging
 
 class PhotoTags(object):
 	def __init__(self, target_required=False, callback=None, args=None,
-				tags_allowed=[], tags_required=[]):
+				tag_patterns=None):
 		self.error_count = 0
 		self.total_files = 0
-		self.tags_allowed = tags_allowed
-		self.tags_required = tags_required
+		if tag_patterns is None:
+			self.tag_patterns = []
+		else:
+			self.tag_patterns = tag_patterns
 		self.args = args
 		self.callback = callback
 		self.init_logging()
 
 	def process_target(self, target=None):
 		self.stop = False
-		self.tag_stats = Tag_Stats(self.tags_allowed, self.tags_required, self.callback)
+		self.tag_stats = Tag_Stats(self.tag_patterns, self.callback)
 		self.total_files = 0
 		if target is None:
 			target = self.args.targ_arg
@@ -85,13 +88,12 @@ class PhotoTags(object):
 			self.callback(name, data)
 
 class Tag_Stats(object):
-	def __init__(self, tags_allowed, tags_required, callback):
+	def __init__(self, tag_patterns, callback):
 		self.freq_dict = {}
 		self.bad_tags = []
 		self.missing_tags = []
 		self.xpkeywords = []
-		self.tags_allowed = tags_allowed
-		self.tags_required = tags_required
+		self.tag_patterns = tag_patterns
 
 	def get_tags(self, fn):
 		iptc_info = IPTCInfo(fn)
@@ -119,20 +121,26 @@ class Tag_Stats(object):
 	
 	def check_allowed(self, fn, tags):
 		bad_tags = []
-		if self.tags_allowed is not None:
+		if self.tag_patterns is not None:
 			for tag in tags:
-				if tag not in self.tags_allowed and tag not in self.tags_required:
+				if tag not in self.tag_patterns:
 					self.bad_tags.append((fn, tag))
 					bad_tags.append(tag)
 		return bad_tags
 
 	def check_required(self, fn, tags):
 		missing_tags = []
-		if self.tags_required is not None:
-			for tag_required in self.tags_required:
-				if tag_required not in tags:
-					self.missing_tags.append((fn, tag_required))
-					missing_tags.append(tag_required)
+		if self.tag_patterns is not None:
+			for tagp in self.tag_patterns:
+				if tagp.is_required:
+					found = False
+					for tag in tags:
+						if tagp.matches(tag):
+							found = True
+							break
+					if not found:
+						self.missing_tags.append((fn, tagp))
+						missing_tags.append(tagp)
 		return missing_tags
 	
 	def print_frequency(self, logger):
@@ -164,16 +172,41 @@ class PhotoTagsCallback(object):
 		self.name = name
 		self.data = data
 
+def debug():
+	p1 = TagPattern('asdf')
+	p2 = TagPattern('xyz')
+	tp1 = TagPatterns()
+	tp1.add(p1)
+	tp2 = TagPatterns(tp1)
+	tp1.add(p2)
+	patterns = ['a[b*c', 'ab?', 'a*', 'a\\nbc', 'a[bc]+']
+	for p in patterns:
+		tagp = TagPattern(p, TagKind.WILDCARD)
+		r = tagp.get_regex()
+		print(r.pattern)
+	return
+	kinds = [TagKind.LITERAL, TagKind.WILDCARD, TagKind.REGEX]
+	vals = ['abc', 'a\nbc', 'abbcc']
+	tpats = TagPatterns()
+	for k in kinds:
+		for p in patterns:
+			t = TagPattern(p, k)
+			tpats.add(t)
+	for v in ['abc', 'abd', 'ab?', 'a*']:
+		found = v in tpats
+		print("%s : %s: %s" % (str(t), v, found))
+
 def main():
 	try:
 		parser = initArgParser()
 		parser.add_argument('targ_arg', help="File or directory to check")
 		args = parser.parse_args()
+		if args.debug:
+			debug()
+			return
 		config = PhotoTagsConfig()
 		config.read_config(args.config)
-		photo_tags = PhotoTags(args=args, 
-						tags_allowed=config.tags_allowed,
-						tags_required=config.tags_required)
+		photo_tags = PhotoTags(args=args, tag_patterns=config.tag_patterns)
 		if args.debug:
 			photo_tags.logger.setLevel(logging.DEBUG)
 		error_count = photo_tags.process_target()
@@ -211,8 +244,7 @@ class PhotoTagsConfig(object):
 	def __init__(self):
 		self.config_parser = configparser.ConfigParser()
 		self.config_ini = None
-		self.tags_required = []
-		self.tags_allowed = []
+		self.tag_patterns = TagPatterns()
 
 	def read_config(self, config_ini="phototags.ini"):
 		self.config_ini = config_ini
@@ -220,29 +252,40 @@ class PhotoTagsConfig(object):
 			self.config_parser.read(config_ini)
 			if self.config_parser.has_section("Tags"):
 				option = self.config_parser.get("Tags", "required")
-				self.tags_required = self.option2tags(option)
+				tags_required = self.option2tags(option, True)
 				option = self.config_parser.get("Tags", "allowed")
-				self.tags_allowed = self.option2tags(option)
+				tags_allowed = self.option2tags(option, False)
+				self.tag_patterns = tags_required + tags_allowed
 			else:
 				raise PhotoTagsException("Configuration is missing a [Tags] section")
 		else:
 			raise PhotoTagsException("Missing config file '%s'" % (config_ini), config_ini)
 
-	def option2tags(self, option):
+	def option2tags(self, option, is_required):
 		arr = option.split("\n")
-		result = []
+		result = TagPatterns()
 		for t in arr:
 			t_trim = t.strip()
+			tag_kind = TagKind.LITERAL
+			if t_trim.startswith('w/'):
+				tag_kind = TagKind.WILDCARD
+				t_trim = t_trim[2:]
+			elif t_trim.startswith('r/'):
+				tag_kind = TagKind.REGEX
+				t_trim = t_trim[2:]
 			if len(t_trim) > 0:
-				result.append(t_trim)
+				tag_pattern = TagPattern(t_trim, tag_kind, is_required)
+				result.add(tag_pattern)
 		return result
 
 	def save_config(self):
 		file = open(self.config_ini, "w")
 		if not self.config_parser.has_section("Tags"):
 			self.config_parser.add_section("Tags")
-		self.config_parser.set("Tags", "allowed", "\n".join(self.tags_allowed))
-		self.config_parser.set("Tags", "required", "\n".join(self.tags_required))
+		tags_allowed = [t.ini_pattern() for t in self.tag_patterns if not t.is_required]
+		tags_required = [t.ini_pattern() for t in self.tag_patterns if t.is_required]
+		self.config_parser.set("Tags", "allowed", "\n".join(tags_allowed))
+		self.config_parser.set("Tags", "required", "\n".join(tags_required))
 		time_str = datetime.datetime.now().strftime("%H:%M%p on %B %d, %Y")
 		file.write("# This file was generated at %s\n\n" % (time_str))
 		self.config_parser.write(file, False)
@@ -250,6 +293,111 @@ class PhotoTagsConfig(object):
 
 class PhotoTagsException(Exception):
 	pass
+
+class TagKind(enum.Enum):
+	LITERAL = 0
+	WILDCARD = 1
+	REGEX = 2
+
+class TagPattern(object):
+	def __init__(self, tag_pattern:str, tag_kind:TagKind=TagKind.LITERAL, is_required=False):
+		self.tag_kind = tag_kind
+		self.tag_pattern = tag_pattern
+		self.regex = None
+		self.is_required = is_required
+
+	def matches(self, tag_value):
+		if self.tag_kind == TagKind.LITERAL:
+			return tag_value == self.tag_pattern
+		return self.get_regex().match(tag_value) is not None
+
+	def is_pattern_valid(self):
+		if self.tag_kind == TagKind.LITERAL:
+			return True
+		try:
+			self.get_regex()
+		except re.error:
+			return False
+		return True
+
+	def get_regex(self):
+		if self.regex is None:
+			expr = self.tag_pattern
+			if self.tag_kind == TagKind.WILDCARD:
+				expr = self.wildcard2regex(self.tag_pattern)
+			elif self.tag_kind == TagKind.LITERAL:
+				pass #TODO: escape the metachars
+			if expr[0] != "^":
+				expr = "^"+expr+"$"
+			self.regex = re.compile(expr)
+		return self.regex
+
+	def wildcard2regex(self, wildcard):
+		map = {
+			"*": ".*",
+			"?": ".",
+			"[": "\\[",
+			"]": "\\]",
+			"{": "\\{",
+			"}": "\\}",
+			"(": "\\(",
+			")": "\\)",
+			"^": "\\^",
+			"|": "\\|",
+			"\\": "\\\\",
+		}
+		s = ""
+		for c in wildcard:
+			d = map.get(c, c)
+			s += d
+		return s
+
+	def __eq__(self, other):
+		if not isinstance(other, TagPattern):
+			return False
+		return self.tag_kind == other.tag_kind and self.tag_pattern == other.tag_pattern and self.is_required == other.is_required
+
+	def __str__(self):
+		required_str = ""
+		if self.is_required:
+			required_str = "required"
+		return "%s (%s) %s" % (self.tag_pattern, str(self.tag_kind), required_str)
+
+	def ini_pattern(self):
+		if self.tag_kind == TagKind.LITERAL:
+			return self.tag_pattern
+		if self.tag_kind == TagKind.WILDCARD:
+			return "w/"+self.tag_pattern
+		if self.tag_kind == TagKind.REGEX:
+			return "r/"+self.tag_pattern
+		raise AttributeError
+
+class TagPatterns(object):
+	def __init__(self, base_patterns=None):
+		self.tag_patterns = []
+		if base_patterns is not None:
+			self.tag_patterns += base_patterns
+
+	def __add__(self, other):
+		if isinstance(other, TagPatterns):
+			result = TagPatterns()
+			result.tag_patterns = self.tag_patterns + other.tag_patterns
+			return result;
+
+	def __len__(self):
+		return len(self.tag_patterns)
+
+	def add(self, tag_pattern: TagPattern):
+		self.tag_patterns.append(tag_pattern)
+		
+	def __contains__(self, value):
+		for t in self:
+			if t.matches(value):
+				return True
+		return False
+
+	def __iter__(self):
+		return iter(self.tag_patterns)
 
 if __name__ == '__main__':
 	error_count = main()

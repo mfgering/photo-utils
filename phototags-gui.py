@@ -83,9 +83,9 @@ class TagsConfigFrame(wx.Frame):
 			dlg = wx.MessageDialog(self, "The tags have been modified, but not saved. Close anyway?", 
 				caption="Unsaved Tag Configuration Changes",
 				style=wx.CANCEL|wx.YES_NO)
-			answer = dlg.ShowModal()
-		if answer == wx.ID_YES:
-			self.close_handler(event)
+			if dlg.ShowModal() == wx.ID_YES:
+				self.close_handler(event)
+			dlg.Destroy()
 
 	def on_save(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
 		try:
@@ -123,6 +123,7 @@ class TagsConfigFrame(wx.Frame):
 						dlg = wx.MessageDialog(self, "The pattern '%s' is invalid for a %s." % (val, kind), 
 							"Error", wx.OK | wx.ICON_ERROR)
 						dlg.ShowModal()
+						dlg.Destroy()
 
 		return False
 
@@ -535,12 +536,14 @@ class MainWindow(wx.Frame):
 					val_str = i.GetValue()
 					msg = wx.MessageDialog(self, "Illegal value \"%s\". Use \"All\" or a positive number." % (val_str), "Max Files Error")
 					msg.ShowModal()
+					msg.Destroy()
 					errors += 1
 			elif arg_name == "targ_arg":
 				val_str = i.GetValue().strip()
 				if not self.target_ok():
 					msg = wx.MessageDialog(self, "\"%s\" is not a file or directory." % (val_str), "Target Error")
 					msg.ShowModal()
+					msg.Destroy()
 					errors += 1
 		# If no errors then apply the control values to the args object
 		if errors == 0:
@@ -751,9 +754,10 @@ class MainWindow(wx.Frame):
 
 	def on_target_select(self, event):  # wxGlade: MainWindow.<event_handler>
 		dlg = wx.DirDialog(self, "Select a target directory for searching photos", "", style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST )
-		dlg.ShowModal()
-		target = dlg.GetPath()
-		self.text_ctrl_target.SetValue(target)
+		if dlg.ShowModal() == wx.ID_OK:
+			target = dlg.GetPath()
+			self.text_ctrl_target.SetValue(target)
+		dlg.Destroy()
 
 	def on_edit_config(self, event):  # wxGlade: MainWindow.<event_handler>
 		self.tag_config_frame = TagsConfigFrame(self)

@@ -154,7 +154,7 @@ class TagConfigTable(wx.grid.GridTableBase):
 	def __init__(self, config):
 		super().__init__()
 		self.config = config
-		self.tags = [tag for tag in config.tags]
+		self.tags = [tag for tag in config.tag_patterns]
 		self.kind_map = {phototags.TagKind.LITERAL: 'literal', 
 						phototags.TagKind.WILDCARD: 'wildcard', 
 						phototags.TagKind.REGEX: 'regex'}

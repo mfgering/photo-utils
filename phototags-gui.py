@@ -86,6 +86,7 @@ class TagsConfigFrame(wx.Frame):
 			if dlg.ShowModal() == wx.ID_YES:
 				self.close_handler(event)
 			dlg.Destroy()
+		event.Skip()
 
 	def on_save(self, event):  # wxGlade: TagsConfigFrame.<event_handler>
 		try:
@@ -770,6 +771,7 @@ class MainWindow(wx.Frame):
 		self.tag_config_frame.Destroy()
 		self.tag_config_frame = None
 		self.button_edit_config.Enable()
+		event.Skip()
 
 	def resource_path(self, relative_path):
 			""" Get absolute path to resource, works for dev and for PyInstaller """

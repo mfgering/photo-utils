@@ -20,7 +20,6 @@ def initArgParser():
 class MoveChecker(object):
 	def __init__(self, dir_old, dir_new, callback=None, args=None):
 		self.stop = False
-		self.error_count = 0
 		self.total_files = 0
 		self.args = args
 		self.callback = callback
@@ -34,9 +33,6 @@ class MoveChecker(object):
 	def stop_processing(self):
 		self.stop = True
 
-	def get_error_count(self):
-		return self.tag_stats.get_error_count() + self.error_count
-	
 	def do_callback(self, name, data):
 		if self.callback is not None:
 			self.callback(name, data)
@@ -60,7 +56,37 @@ class MoveChecker(object):
 		dir_data_old.probe_dir(self.args.dir_old)
 		dir_data_new = DirData(self.args.dir_new, self.probe_callback)
 		dir_data_new.probe_dir(self.args.dir_new)
-		return self.error_count
+
+		# Init multi-dicts for the name and size fields
+		mdict_size_new = {}
+		for file_data in dir_data_new.file_data:
+			self.multi_dict_save(mdict_size_new, file_data.get_size(), file_data)
+
+		same_files = []
+		no_matches = []
+		for file_data_old in dir_data_old.file_data:
+			is_matched = False
+			if file_data_old.get_size() in mdict_size_new:
+				new_files = mdict_size_new[file_data_old.get_size()]
+				if type(new_files) != list:
+					new_files = [new_files]
+				for file_data_new in new_files:
+					if file_data_new.get_hash() == file_data_old.get_hash():
+						same_files.append((file_data_old, file_data_new))
+						is_matched = True
+			if not is_matched:
+				no_matches.append(file_data_old)
+		self.logger.info("Found %s matching, %s not matching" % (str(len(same_files)), str(len(no_matches))))
+
+	def multi_dict_save(self, dictionary, key, value):
+		if key in dictionary:
+			curr_val = dictionary[key]
+			if type(curr_val) != list:
+				value = [curr_val, value]
+			else:
+				curr_val.append(value)
+				value = curr_val
+		dictionary[key] = value
 
 
 class DirData(object):
@@ -68,13 +94,12 @@ class DirData(object):
 		self.dir_name = dir_name
 		self.callback = callback
 		self.stop = False
-		self.error_count = 0
 		self.total_files = 0
 		self.file_data = []
 
 	def do_callback(self, name, data):
 		if self.callback is not None:
-			self.callback(name, data)
+			return self.callback(name, data)
 
 	def probe_dir(self, dir_name):
 		if not os.path.isdir(dir_name):
@@ -94,6 +119,7 @@ class DirData(object):
 		self.file_data.append(file_data)
 		should_continue = self.do_callback("file", {"file_data": file_data})
 		return should_continue
+
 
 class FileData(object):
 	def __init__(self, dir_name, fn):
@@ -132,7 +158,6 @@ class FileData(object):
 		return s
 
 def main():
-	error_count = 0
 	try:
 		parser = initArgParser()
 		parser.add_argument('--dir-old', required=True, help="Directory with old files")
@@ -142,25 +167,14 @@ def main():
 		if args.debug:
 			checker.logger.setLevel(logging.DEBUG)
 			checker.debug()
-		error_count = checker.do_check()
+		checker.do_check()
 		checker.logger.info("%s files processed", str(checker.total_files))
-		if error_count > 0:
-			label = "errors"
-			if error_count == 1:
-				label = "error"
-			checker.logger.error("%s %s", error_count, label)
-		else:
-			checker.logger.info("No errors")
 	except Exception as exc:
 		logging.getLogger().exception(exc)
-		error_count = error_count + 1
-	return error_count
 
 	def debug(self):
 		pass
 
 if __name__ == '__main__':
-	error_count = main()
-	if error_count == 0:
-		sys.exit(0)
-	sys.exit(1)
+	main()
+	sys.exit(0)

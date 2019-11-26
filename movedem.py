@@ -41,24 +41,35 @@ class MoveChecker(object):
 		if self.callback is not None:
 			self.callback(name, data)
 
+	def probe_callback(self, name, data):
+		self.do_callback(name, data)
+		if name == "file":
+			self.total_files = self.total_files + 1
+			if self.total_files % 100 == 0:
+				self.logger.info("%s files processed...", str(self.total_files))
+			if self.args.max_files > 0 and self.total_files >= self.args.max_files:
+				self.logger.info("%s files processed; max files reached!", str(self.total_files))
+				return False
+			return True
+	
 	def debug(self):
-		dd1 = DirData(self.args.dir_old, self.callback)
-		dd1.probe_dir(self.args.dir_old)
 		pass
 
 	def do_check(self):
-		pass #TODO: FIX THIS
+		dir_data_old = DirData(self.args.dir_old, self.probe_callback)
+		dir_data_old.probe_dir(self.args.dir_old)
+		dir_data_new = DirData(self.args.dir_new, self.probe_callback)
+		dir_data_new.probe_dir(self.args.dir_new)
 		return self.error_count
 
 
 class DirData(object):
-	def __init__(self, dir_name, callback=None, total_files=0, max_files=-1):
+	def __init__(self, dir_name, callback=None):
 		self.dir_name = dir_name
 		self.callback = callback
 		self.stop = False
 		self.error_count = 0
-		self.total_files = total_files
-		self.max_files = max_files
+		self.total_files = 0
 		self.file_data = []
 
 	def do_callback(self, name, data):
@@ -74,27 +85,26 @@ class DirData(object):
 			for fn in file_list:
 				if self.stop:
 					break
-				self.probe_file(dir_name, fn)
+				if not self.probe_file(dir_name, fn):
+					break
 
 	def probe_file(self,  dir_name, fn):
-		self.do_callback("file", {"dir_name": dir_name, "fn": fn})
 		self.total_files += 1
-		self.file_data.append(FileData(dir_name, fn))
-		if self.total_files % 100 == 0:
-			self.logger.info("%s files processed...", str(self.total_files))
-		if self.max_files > 0 and self.total_files >= self.max_files:
-			self.logger.info("%s maximum files reached", str(self.max_files))
-			self.stop = True
+		file_data = FileData(dir_name, fn)
+		self.file_data.append(file_data)
+		should_continue = self.do_callback("file", {"file_data": file_data})
+		return should_continue
 
 class FileData(object):
 	def __init__(self, dir_name, fn):
 		self.file_hash = None
 		self.dir_name = dir_name
 		self.fn = fn
-		self.stats = os.stat(self.get_full_fn())
+		stats = os.stat(self.get_full_fn())
+		self.file_size = os.stat_result(stats).st_size
 
 	def get_size(self):
-		return os.stat_result(self.stats).st_size
+		return self.file_size
 
 	def get_fn(self):
 		return self.fn

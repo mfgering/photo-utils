@@ -64,6 +64,7 @@ class MoveChecker(object):
 
 		same_files = []
 		no_matches = []
+		name_changes = []
 		file_count = 0
 		for file_data_old in dir_data_old.file_data:
 			file_count = file_count + 1
@@ -76,15 +77,21 @@ class MoveChecker(object):
 					new_files = [new_files]
 				for file_data_new in new_files:
 					if file_data_new.get_hash() == file_data_old.get_hash():
-						same_files.append((file_data_old, file_data_new))
+						old_new = (file_data_old, file_data_new)
+						same_files.append(old_new)
+						is_name_changed = file_data_old.get_fn() != file_data_new.get_fn()
+						if is_name_changed:
+							name_changes.append(old_new)
 						is_matched = True
-						self.do_callback("file_check", {"is_matched": is_matched, "file_count": file_count, 
+						self.do_callback("file_check", {"is_matched": is_matched, 
+								"is_name_changed": is_name_changed, "file_count": file_count, 
 								"old_file": file_data_old, "new_file": file_data_new})
 			if not is_matched:
 				no_matches.append(file_data_old)
 				self.do_callback("file_check", {"is_matched": is_matched, "file_count": file_count, 
 						"old_file": file_data_old, "new_file": None})
-		self.logger.info("Found %s matching, %s not matching" % (str(len(same_files)), str(len(no_matches))))
+		self.logger.info("Found %s matching (includes %s name changes), %s not matching" % 
+			(str(len(same_files)), str(len(name_changes)), str(len(no_matches))))
 
 	def multi_dict_save(self, dictionary, key, value):
 		if key in dictionary:

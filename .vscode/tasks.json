@@ -24,6 +24,16 @@
       "problemMatcher": []
     },
     {
+      "label": "glade movedem",
+      "type": "shell",
+      "command": "python ${config:glade.location}/wxglade.py ${workspaceRoot}/movedem-gui.wxg",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "build phototags executable",
       "type": "shell",
       "command": "pyinstaller -i app-icon.ico -F phototags.py",

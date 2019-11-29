@@ -13,6 +13,10 @@ import argparse, hashlib, logging, os, sys
 def initArgParser():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--max-files', type=int, default=-1, help="Max number of files (-1 for all of them)")
+	parser.add_argument('--old-dir', type=str, default=-1, help="Old directory")
+	parser.add_argument('--new-dir', type=str, default=-1, help="New directory")
+	parser.add_argument('--compare', default=True, dest='compare', action='store_true', help="Compare old and new directories")
+	parser.add_argument('--no-compare', dest='compare', action='store_false', help="Do not compare old and new directories")
 	parser.add_argument('--debug', default=False, dest='debug', action='store_true', help="Enable debugging")
 	parser.add_argument('--no-debug', dest='debug', action='store_false', help="Do not enable debugging")
 	return parser
@@ -51,7 +55,11 @@ class MoveChecker(object):
 	def debug(self):
 		pass
 
-	def do_check(self):
+	def do_checks(self):
+		if self.args.compare:
+			self.do_compare()
+	
+	def do_compare(self):
 		dir_data_old = DirData(self.args.dir_old, self.probe_callback)
 		dir_data_old.probe_dir(self.args.dir_old)
 		dir_data_new = DirData(self.args.dir_new, self.probe_callback)
@@ -182,7 +190,7 @@ def main():
 		if args.debug:
 			checker.logger.setLevel(logging.DEBUG)
 			checker.debug()
-		checker.do_check()
+		checker.do_checks()
 		checker.logger.info("%s files processed", str(checker.total_files))
 	except Exception as exc:
 		logging.getLogger().exception(exc)

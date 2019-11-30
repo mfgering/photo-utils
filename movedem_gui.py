@@ -15,153 +15,268 @@ import logging, os, sys, threading, wx
 import wx.grid as Grid
 # end wxGlade
 
-
 class MainWindow(wx.Frame):
-    def __init__(self, *args, **kwds):
-        # begin wxGlade: MainWindow.__init__
-        kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
-        wx.Frame.__init__(self, *args, **kwds)
-        self.SetSize((928, 654))
-        self.SetTitle("Moved Some Files -- Let's Check 'Em")
-        
-        self.frame_statusbar = self.CreateStatusBar(1)
-        self.frame_statusbar.SetStatusWidths([-1])
-        
-        main_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        
-        self.notebook_1 = wx.Notebook(self, wx.ID_ANY)
-        main_sizer.Add(self.notebook_1, 1, wx.EXPAND, 0)
-        
-        self.options_page = wx.Panel(self.notebook_1, wx.ID_ANY)
-        self.options_page.SetToolTip("Show/edit processing options")
-        self.notebook_1.AddPage(self.options_page, "notebook_1_pane_1")
-        
-        sizer_3 = wx.BoxSizer(wx.VERTICAL)
-        
-        sizer_10 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Options"), wx.VERTICAL)
-        sizer_3.Add(sizer_10, 0, wx.ALL | wx.EXPAND, 15)
-        
-        sizer_11 = wx.BoxSizer(wx.VERTICAL)
-        sizer_10.Add(sizer_11, 1, wx.EXPAND | wx.LEFT, 15)
-        
-        self.checkbox_compare = wx.CheckBox(self.options_page, wx.ID_ANY, "Compare old and new directories")
-        self.checkbox_compare.SetValue(1)
-        self.checkbox_compare.arg_name = "targ_arg"
-        sizer_11.Add(self.checkbox_compare, 0, wx.TOP, 5)
-        
-        sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_10.Add(sizer_5, 0, wx.LEFT, 15)
-        
-        self.text_ctrl_max_files = wx.TextCtrl(self.options_page, wx.ID_ANY, "", style=wx.TE_PROCESS_ENTER | wx.TE_PROCESS_TAB)
-        self.text_ctrl_max_files.SetToolTip("Maximum number of files to process (or 'All')")
-        self.text_ctrl_max_files.arg_name = "max_files"
-        sizer_5.Add(self.text_ctrl_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.TOP, 5)
-        
-        static_text_max_files = wx.StaticText(self.options_page, wx.ID_ANY, "Max files")
-        sizer_5.Add(static_text_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.TOP, 5)
-        
-        sizer_6 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Directories"), wx.VERTICAL)
-        sizer_10.Add(sizer_6, 0, wx.ALL | wx.EXPAND, 15)
-        
-        sizer_1 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_6.Add(sizer_1, 0, wx.ALL | wx.EXPAND, 5)
-        
-        static_text_1 = wx.StaticText(self.options_page, wx.ID_ANY, "Old:", style=wx.ALIGN_LEFT)
-        sizer_1.Add(static_text_1, 0, wx.RIGHT, 10)
-        
-        self.text_ctrl_old_dir = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
-        self.text_ctrl_old_dir.arg_name = "old-dir"
-        sizer_1.Add(self.text_ctrl_old_dir, 1, wx.EXPAND, 0)
-        
-        self.button_select_old_dir = wx.Button(self.options_page, wx.ID_ANY, "Select...")
-        sizer_1.Add(self.button_select_old_dir, 0, wx.LEFT, 15)
-        
-        sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_6.Add(sizer_2, 1, wx.ALL | wx.EXPAND, 5)
-        
-        static_text_2 = wx.StaticText(self.options_page, wx.ID_ANY, "New:", style=wx.ALIGN_LEFT)
-        sizer_2.Add(static_text_2, 0, wx.RIGHT, 10)
-        
-        self.text_ctrl_new_dir = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
-        self.text_ctrl_new_dir.arg_name = "new-dir"
-        sizer_2.Add(self.text_ctrl_new_dir, 1, wx.EXPAND, 0)
-        
-        self.button_select_new_dir = wx.Button(self.options_page, wx.ID_ANY, "Select...")
-        sizer_2.Add(self.button_select_new_dir, 0, wx.LEFT, 15)
-        
-        sizer_7 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Processing"), wx.HORIZONTAL)
-        sizer_3.Add(sizer_7, 0, wx.ALL, 15)
-        
-        self.button_start = wx.Button(self.options_page, wx.ID_ANY, "Start")
-        sizer_7.Add(self.button_start, 0, wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT, 10)
-        
-        self.button_stop = wx.Button(self.options_page, wx.ID_ANY, "Stop")
-        self.button_stop.Enable(False)
-        sizer_7.Add(self.button_stop, 0, wx.BOTTOM | wx.LEFT | wx.RIGHT, 10)
-        
-        self.matches_page = wx.Panel(self.notebook_1, wx.ID_ANY)
-        self.matches_page.SetToolTip("Files that match in old and new directories")
-        self.notebook_1.AddPage(self.matches_page, "new tab")
-        
-        sizer_4 = wx.BoxSizer(wx.VERTICAL)
-        
-        self.static_text_matches_header = wx.StaticText(self.matches_page, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
-        self.static_text_matches_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
-        sizer_4.Add(self.static_text_matches_header, 0, wx.ALL, 15)
-        
-        sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_4.Add(sizer_8, 1, wx.EXPAND, 0)
-        
-        self.grid_tags = wx.grid.Grid(self.matches_page, wx.ID_ANY, size=(1, 1))
-        self.grid_tags.CreateGrid(0, 2)
-        self.grid_tags.EnableEditing(0)
-        self.grid_tags.EnableDragRowSize(0)
-        self.grid_tags.SetSelectionMode(wx.grid.Grid.SelectRows)
-        self.grid_tags.SetColLabelValue(0, "Filename")
-        self.grid_tags.SetColLabelValue(1, "All Tags")
-        sizer_8.Add(self.grid_tags, 1, wx.ALL | wx.EXPAND, 15)
-        
-        self.matches_page.SetSizer(sizer_4)
-        
-        self.options_page.SetSizer(sizer_3)
-        
-        self.SetSizer(main_sizer)
-        
-        self.Layout()
+	def __init__(self, *args, **kwds):
+		# begin wxGlade: MainWindow.__init__
+		kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE
+		wx.Frame.__init__(self, *args, **kwds)
+		self.SetSize((928, 654))
+		self.SetTitle("Moved Some Files -- Let's Check 'Em")
+		
+		self.frame_statusbar = self.CreateStatusBar(1)
+		self.frame_statusbar.SetStatusWidths([-1])
+		
+		main_sizer = wx.BoxSizer(wx.HORIZONTAL)
+		
+		self.notebook_1 = wx.Notebook(self, wx.ID_ANY)
+		main_sizer.Add(self.notebook_1, 1, wx.EXPAND, 0)
+		
+		self.options_page = wx.Panel(self.notebook_1, wx.ID_ANY)
+		self.options_page.SetToolTip("Show/edit processing options")
+		self.notebook_1.AddPage(self.options_page, "Options")
+		
+		sizer_3 = wx.BoxSizer(wx.VERTICAL)
+		
+		sizer_10 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Options"), wx.VERTICAL)
+		sizer_3.Add(sizer_10, 0, wx.ALL | wx.EXPAND, 15)
+		
+		sizer_11 = wx.BoxSizer(wx.VERTICAL)
+		sizer_10.Add(sizer_11, 1, wx.EXPAND | wx.LEFT, 15)
+		
+		self.checkbox_compare = wx.CheckBox(self.options_page, wx.ID_ANY, "Compare old and new directories")
+		self.checkbox_compare.SetValue(1)
+		self.checkbox_compare.arg_name = "compare"
+		sizer_11.Add(self.checkbox_compare, 0, wx.TOP, 5)
+		
+		sizer_5 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_10.Add(sizer_5, 0, wx.LEFT, 15)
+		
+		self.text_ctrl_max_files = wx.TextCtrl(self.options_page, wx.ID_ANY, "", style=wx.TE_PROCESS_ENTER | wx.TE_PROCESS_TAB)
+		self.text_ctrl_max_files.SetToolTip("Maximum number of files to process (or 'All')")
+		self.text_ctrl_max_files.arg_name = "max_files"
+		sizer_5.Add(self.text_ctrl_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.TOP, 5)
+		
+		static_text_max_files = wx.StaticText(self.options_page, wx.ID_ANY, "Max files")
+		sizer_5.Add(static_text_max_files, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT | wx.TOP, 5)
+		
+		sizer_6 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Directories"), wx.VERTICAL)
+		sizer_10.Add(sizer_6, 0, wx.ALL | wx.EXPAND, 15)
+		
+		sizer_1 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_6.Add(sizer_1, 0, wx.ALL | wx.EXPAND, 5)
+		
+		static_text_1 = wx.StaticText(self.options_page, wx.ID_ANY, "Old:", style=wx.ALIGN_LEFT)
+		sizer_1.Add(static_text_1, 0, wx.RIGHT, 10)
+		
+		self.text_ctrl_old_dir = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
+		self.text_ctrl_old_dir.arg_name = "old_dir"
+		sizer_1.Add(self.text_ctrl_old_dir, 1, wx.EXPAND, 0)
+		
+		self.button_select_old_dir = wx.Button(self.options_page, wx.ID_ANY, "Select...")
+		sizer_1.Add(self.button_select_old_dir, 0, wx.LEFT, 15)
+		
+		sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_6.Add(sizer_2, 1, wx.ALL | wx.EXPAND, 5)
+		
+		static_text_2 = wx.StaticText(self.options_page, wx.ID_ANY, "New:", style=wx.ALIGN_LEFT)
+		sizer_2.Add(static_text_2, 0, wx.RIGHT, 10)
+		
+		self.text_ctrl_new_dir = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
+		self.text_ctrl_new_dir.arg_name = "new_dir"
+		sizer_2.Add(self.text_ctrl_new_dir, 1, wx.EXPAND, 0)
+		
+		self.button_select_new_dir = wx.Button(self.options_page, wx.ID_ANY, "Select...")
+		sizer_2.Add(self.button_select_new_dir, 0, wx.LEFT, 15)
+		
+		sizer_7 = wx.StaticBoxSizer(wx.StaticBox(self.options_page, wx.ID_ANY, "Processing"), wx.HORIZONTAL)
+		sizer_3.Add(sizer_7, 0, wx.ALL, 15)
+		
+		self.button_start = wx.Button(self.options_page, wx.ID_ANY, "Start")
+		sizer_7.Add(self.button_start, 0, wx.ALIGN_CENTER_VERTICAL | wx.BOTTOM | wx.LEFT, 10)
+		
+		self.button_stop = wx.Button(self.options_page, wx.ID_ANY, "Stop")
+		self.button_stop.Enable(False)
+		sizer_7.Add(self.button_stop, 0, wx.BOTTOM | wx.LEFT | wx.RIGHT, 10)
+		
+		self.matches_page = wx.Panel(self.notebook_1, wx.ID_ANY)
+		self.matches_page.SetToolTip("Files that match in old and new directories")
+		self.notebook_1.AddPage(self.matches_page, "Matches")
+		
+		sizer_4 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.static_text_matches_header = wx.StaticText(self.matches_page, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
+		self.static_text_matches_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+		sizer_4.Add(self.static_text_matches_header, 0, wx.ALL, 15)
+		
+		sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_4.Add(sizer_8, 1, wx.EXPAND, 0)
+		
+		self.grid_tags = wx.grid.Grid(self.matches_page, wx.ID_ANY, size=(1, 1))
+		self.grid_tags.CreateGrid(0, 2)
+		self.grid_tags.EnableEditing(0)
+		self.grid_tags.EnableDragRowSize(0)
+		self.grid_tags.SetSelectionMode(wx.grid.Grid.SelectRows)
+		self.grid_tags.SetColLabelValue(0, "Old")
+		self.grid_tags.SetColLabelValue(1, "New")
+		sizer_8.Add(self.grid_tags, 1, wx.ALL | wx.EXPAND, 15)
+		
+		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
+		self.notebook_1_logs.SetScrollRate(10, 10)
+		self.notebook_1.AddPage(self.notebook_1_logs, "Log")
+		
+		sizer_9 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.log_text_ctrl = wx.TextCtrl(self.notebook_1_logs, wx.ID_ANY, "", style=wx.TE_BESTWRAP | wx.TE_MULTILINE | wx.TE_READONLY)
+		sizer_9.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 15)
+		
+		self.notebook_1_logs.SetSizer(sizer_9)
+		
+		self.matches_page.SetSizer(sizer_4)
+		
+		self.options_page.SetSizer(sizer_3)
+		
+		self.SetSizer(main_sizer)
+		
+		self.Layout()
 
-        self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_compare)
-        self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_max_files)
-        self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_old_dir)
-        self.Bind(wx.EVT_BUTTON, self.on_old_dir_select, self.button_select_old_dir)
-        self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_new_dir)
-        self.Bind(wx.EVT_BUTTON, self.on_old_dir_select, self.button_select_new_dir)
-        self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
-        self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
-        # end wxGlade
+		self.Bind(wx.EVT_CHECKBOX, self.on_options_event, self.checkbox_compare)
+		self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_max_files)
+		self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_old_dir)
+		self.Bind(wx.EVT_BUTTON, self.on_dir_select, self.button_select_old_dir)
+		self.Bind(wx.EVT_TEXT, self.on_options_event, self.text_ctrl_new_dir)
+		self.Bind(wx.EVT_BUTTON, self.on_dir_select, self.button_select_new_dir)
+		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
+		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
+		# end wxGlade
+		self.GetStatusBar().SetStatusText("")
+		try:
+			# redirect text here
+			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
+			sys.stdout = redir
+			sys.stderr = redir
+			self.worker_thread = None
+			self.guiThreadId = threading.current_thread().ident
+			self.args = self.parseArgs()
+			self.update_options()
+			#self.config = phototags.PhotoTagsConfig()
+			#self.config.read_config(self.args.config)
+			self.reset_results()
+			self.set_button_states()
+			self.SetMinClientSize((600, 480))
+			self.SetClientSize((600, 480))
+		except Exception as exc:
+			self.GetStatusBar().SetStatusText("Error: "+str(exc))
+			logging.getLogger().exception(exc)
+		print("App starting")
 
-    def on_options_event(self, event):  # wxGlade: MainWindow.<event_handler>
-        print("Event handler 'on_options_event' not implemented!")
-        event.Skip()
-    def on_old_dir_select(self, event):  # wxGlade: MainWindow.<event_handler>
-        print("Event handler 'on_old_dir_select' not implemented!")
-        event.Skip()
-    def on_start_button(self, event):  # wxGlade: MainWindow.<event_handler>
-        print("Event handler 'on_start_button' not implemented!")
-        event.Skip()
-    def on_stop_button(self, event):  # wxGlade: MainWindow.<event_handler>
-        print("Event handler 'on_stop_button' not implemented!")
-        event.Skip()
+	def set_button_states(self):
+		self.GetStatusBar().SetStatusText("")
+		options_ok = self.options_ok()
+		start = options_ok and \
+				(self.worker_thread is None or \
+				self.worker_thread.done)
+		stop = self.worker_thread is not None and \
+				not self.worker_thread.done
+		self.button_start.Enable(start)
+		self.button_stop.Enable(stop)
+
+	def parseArgs(self):
+		parser = movedem.initArgParser()
+		return parser.parse_args()
+
+	def update_options(self):
+		# Update control values from saved args
+		page = self.options_page.GetChildren()
+		for i in page:
+			if hasattr(i, "arg_name"):
+				arg_name = getattr(i, "arg_name")
+				arg_value = getattr(self.args, arg_name)
+				if arg_name == "max_files":
+					str_value = str(arg_value)
+					if arg_value < 0:
+						str_value = "All"
+					i.ChangeValue(str_value) # avoids triggering event
+				elif hasattr(i, "ChangeValue"):
+					i.ChangeValue(arg_value) # avoids triggering event
+				else:
+					i.SetValue(arg_value)
+
+	def options_ok(self):
+		return self.max_files_ok() and self.dirs_ok()
+
+	def max_files_ok(self):
+		val_str = self.text_ctrl_max_files.GetValue().strip()
+		if len(val_str) > 0 and val_str.lower() != "all":
+			try:
+				val = int(val_str)
+			except Exception as exc:
+				return False
+		return True
+
+	def dirs_ok(self):
+		for dir_ctl in (self.text_ctrl_old_dir, self.text_ctrl_new_dir):
+			dir = dir_ctl.GetValue().strip()
+			if not os.path.isdir(dir):
+				self.GetStatusBar().SetStatusText("'%s' is not a valid directory." % (dir))
+				return False
+		return True
+
+	def reset_results(self):
+		self.fileCount = 0
+		#self.static_text_tags_header.SetLabelText("No results yet")
+		#self.static_text_tags_missing_header.SetLabelText("No results yet")
+		#self.static_text_tags_bad_header.SetLabelText("No results yet")
+		#self.grid_tags.Hide()
+		#self.grid_tags_missing.Hide()
+		#self.grid_tags_bad.Hide()
+		#self.grid_tags_freq.Hide()
+
+	def on_options_event(self, event):  # wxGlade: MainWindow.<event_handler>
+		self.set_button_states()
+
+	def on_dir_select(self, event):  # wxGlade: MainWindow.<event_handler>
+		msg = "Select a directory for \"new\" content."
+		text_ctrl = self.text_ctrl_new_dir
+		if event.GetEventObject() == self.button_select_old_dir:
+			msg = "Select a directory for \"old\" content."
+			text_ctrl = self.text_ctrl_old_dir
+		dlg = wx.DirDialog(self, msg, "", style=wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST )
+		if dlg.ShowModal() == wx.ID_OK:
+			dir = dlg.GetPath()
+			text_ctrl.SetValue(dir)
+			self.GetStatusBar().SetStatusText("") #TODO: REMOVE?
+			self.set_button_states()
+		dlg.Destroy()
+
+	def on_start_button(self, event):  # wxGlade: MainWindow.<event_handler>
+		print("Event handler 'on_start_button' not implemented!")
+		event.Skip()
+	def on_stop_button(self, event):  # wxGlade: MainWindow.<event_handler>
+		print("Event handler 'on_stop_button' not implemented!")
+		event.Skip()
 # end of class MainWindow
 
 class MovedEmApp(wx.App):
-    def OnInit(self):
-        self.frame = MainWindow(None, wx.ID_ANY, "")
-        self.SetTopWindow(self.frame)
-        self.frame.Show()
-        return True
+	def OnInit(self):
+		self.frame = MainWindow(None, wx.ID_ANY, "")
+		self.SetTopWindow(self.frame)
+		self.frame.Show()
+		return True
 
 # end of class MovedEmApp
 
+class RedirectText(object):
+	def __init__(self, aWxTextCtrl, guiThreadId):
+		self.out=aWxTextCtrl
+		self.guiThreadId = guiThreadId
+
+	def write(self, string):
+		threadId = threading.current_thread().ident
+		if self.guiThreadId == threadId:
+			self.out.WriteText(string)
+		else:
+			wx.CallAfter(self.out.WriteText, string)
+
 if __name__ == "__main__":
-    app = MovedEmApp(0)
-    app.MainLoop()
+	app = MovedEmApp(0)
+	app.MainLoop()

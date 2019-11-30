@@ -13,8 +13,8 @@ import argparse, hashlib, logging, os, sys
 def initArgParser():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--max-files', type=int, default=-1, help="Max number of files (-1 for all of them)")
-	parser.add_argument('--old-dir', type=str, default=-1, help="Old directory")
-	parser.add_argument('--new-dir', type=str, default=-1, help="New directory")
+	parser.add_argument('--old-dir', type=str, default="", help="Old directory")
+	parser.add_argument('--new-dir', type=str, default="", help="New directory")
 	parser.add_argument('--compare', default=True, dest='compare', action='store_true', help="Compare old and new directories")
 	parser.add_argument('--no-compare', dest='compare', action='store_false', help="Do not compare old and new directories")
 	parser.add_argument('--debug', default=False, dest='debug', action='store_true', help="Enable debugging")

@@ -148,7 +148,8 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		# end wxGlade
-		self.GetStatusBar().SetStatusText("")
+		self.status_timer = None
+		#self.set_status("") #TODO: DELETE
 		try:
 			# redirect text here
 			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
@@ -158,19 +159,17 @@ class MainWindow(wx.Frame):
 			self.guiThreadId = threading.current_thread().ident
 			self.args = self.parseArgs()
 			self.update_options()
-			#self.config = phototags.PhotoTagsConfig()
-			#self.config.read_config(self.args.config)
 			self.reset_results()
 			self.set_button_states()
 			self.SetMinClientSize((600, 480))
 			self.SetClientSize((600, 480))
 		except Exception as exc:
-			self.GetStatusBar().SetStatusText("Error: "+str(exc))
+			self.set_status("Error: "+str(exc))
 			logging.getLogger().exception(exc)
 		print("App starting")
 
 	def set_button_states(self):
-		self.GetStatusBar().SetStatusText("")
+		#self.set_status("") #TODO: DELETE
 		options_ok = self.options_ok()
 		start = options_ok and \
 				(self.worker_thread is None or \
@@ -209,7 +208,9 @@ class MainWindow(wx.Frame):
 		if len(val_str) > 0 and val_str.lower() != "all":
 			try:
 				val = int(val_str)
+				self.args.max_files = val
 			except Exception as exc:
+				self.set_status("max files must be a positive integer or \"all\"", 3000)
 				return False
 		return True
 
@@ -217,12 +218,12 @@ class MainWindow(wx.Frame):
 		for dir_ctl in (self.text_ctrl_old_dir, self.text_ctrl_new_dir):
 			dir = dir_ctl.GetValue().strip()
 			if not os.path.isdir(dir):
-				self.GetStatusBar().SetStatusText("'%s' is not a valid directory." % (dir))
+				self.set_status("'%s' is not a valid directory." % (dir), 3000)
 				return False
 		return True
 
 	def reset_results(self):
-		self.fileCount = 0
+		self.file_count = 0
 		#self.static_text_tags_header.SetLabelText("No results yet")
 		#self.static_text_tags_missing_header.SetLabelText("No results yet")
 		#self.static_text_tags_bad_header.SetLabelText("No results yet")
@@ -244,16 +245,87 @@ class MainWindow(wx.Frame):
 		if dlg.ShowModal() == wx.ID_OK:
 			dir = dlg.GetPath()
 			text_ctrl.SetValue(dir)
-			self.GetStatusBar().SetStatusText("") #TODO: REMOVE?
+			self.set_status("") #TODO: REMOVE?
 			self.set_button_states()
 		dlg.Destroy()
 
+	def process_callback(self, callback_name, callback_data):
+		if callback_name == "file":
+			self.file_count = self.file_count + 1
+		elif callback_name == "start_compare":
+			self.dir_data_old = callback_data["dir_data_old"]
+			self.dir_data_new = callback_data["dir_data_new"]
+			old_len = len(self.dir_data_old.file_data)
+			new_len = len(self.dir_data_new.file_data)
+			self.set_status("Starting to compare %s files (%s old and %s new)" 
+						% (str(old_len+new_len), str(old_len), str(new_len)))
+		elif callback_name == "file_check":
+			cnt = callback_data["file_count"]
+			total = callback_data["total_files"]
+	
+			self.set_status("Checked {} of {} ({:.0%} files)".format(cnt, total, cnt/total))
+		elif callback_name == "compare_results":
+			self.compare_results = callback_data
+		elif callback_name == "done":
+			status = "Done"
+			if callback_data["wasStopped"]:
+				status = "Stopped"
+			self.set_status("Processed %s files: %s" % (self.file_count, status))
+			self.worker_thread.done = True
+			self.update_results()
+			self.set_button_states()
+		else:
+			logging.getLogger().error("Unknown callback name %s" % callback_name)
+			self.set_status("Error: Unknown callback name %s" % (callback_name))
+
 	def on_start_button(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_start_button' not implemented!")
-		event.Skip()
+		self.set_status("Starting to process directories...", 4000)
+		self.reset_results()
+		self.gui2args()
+		self.worker_thread = MovedEmThread(self.process_callback, args=self.args)
+		self.worker_thread.start()
+		self.set_button_states()
+		
 	def on_stop_button(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_stop_button' not implemented!")
-		event.Skip()
+		self.worker_thread.stop()
+		self.set_status("Stopping...", 4000)
+		self.set_button_states()
+
+	def gui2args(self):
+		option_controls = [c for c in self.options_page.GetChildren() if hasattr(c, "arg_name")]
+		for i in option_controls:
+			if hasattr(i, "arg_name"):
+				arg_name = getattr(i, "arg_name")
+				if arg_name == "max_files":
+					val = -1
+					val_str = i.GetValue().strip()
+					if len(val_str) > 0 and val_str.lower() != "all":
+						val = int(val_str)
+					setattr(self.args, arg_name, val)
+				elif arg_name == "old_dir" or arg_name == "new_dir":
+					setattr(self.args, arg_name, i.GetValue())
+				else:
+					setattr(self.args, arg_name, bool(i.GetValue()))
+
+	def update_results(self):
+		pass
+
+	def set_status(self, msg, timeout=-1, timeout_msg=None):
+		if self.status_timer is not None:
+			del self.status_timer
+			self.status_timer = None
+		self.GetStatusBar().SetStatusText(msg)
+		if timeout > 0:
+			self.status_timeout_msg = timeout_msg
+			self.status_timer = wx.CallLater(timeout, self.status_timed_out, msg=timeout_msg)
+
+	def status_timed_out(self, msg=None):
+		if self.status_timer is not None:
+			if msg is None:
+				msg = ""
+			self.GetStatusBar().SetStatusText(msg)
+			del self.status_timer
+			self.status_timer = None
 # end of class MainWindow
 
 class MovedEmApp(wx.App):
@@ -265,6 +337,25 @@ class MovedEmApp(wx.App):
 
 # end of class MovedEmApp
 
+class MovedEmThread(threading.Thread):
+	def __init__(self, callback, args):
+		super().__init__()
+		self.callback = callback
+		self.errorCount = 0
+		self.args = args
+		self.stopping = False
+		self.done = False
+
+	def run(self):
+		self.move_checker = movedem.MoveChecker(self.args.old_dir, self.args.new_dir, callback=self.callback, args=self.args)
+		if self.args.debug:
+			self.move_checker.logger.setLevel(logging.DEBUG)
+		self.move_checker.do_checks()
+		self.done = True
+
+	def stop(self):
+		self.move_checker.stop_processing()
+		self.stopping = True
 class RedirectText(object):
 	def __init__(self, aWxTextCtrl, guiThreadId):
 		self.out=aWxTextCtrl

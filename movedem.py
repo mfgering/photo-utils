@@ -58,13 +58,15 @@ class MoveChecker(object):
 	def do_checks(self):
 		if self.args.compare:
 			self.do_compare()
+		self.do_callback("done", {"wasStopped": self.stop})
 	
 	def do_compare(self):
-		dir_data_old = DirData(self.args.dir_old, self.probe_callback)
-		dir_data_old.probe_dir(self.args.dir_old)
-		dir_data_new = DirData(self.args.dir_new, self.probe_callback)
-		dir_data_new.probe_dir(self.args.dir_new)
+		dir_data_old = DirData(self.args.old_dir, self.probe_callback)
+		dir_data_old.probe_dir(self.args.old_dir)
+		dir_data_new = DirData(self.args.new_dir, self.probe_callback)
+		dir_data_new.probe_dir(self.args.new_dir)
 
+		self.do_callback("start_compare", {"dir_data_old": dir_data_old, "dir_data_new": dir_data_new})
 		# Init multi-dicts for the name and size fields
 		mdict_size_new = {}
 		for file_data in dir_data_new.file_data:
@@ -93,13 +95,15 @@ class MoveChecker(object):
 						is_matched = True
 						self.do_callback("file_check", {"is_matched": is_matched, 
 								"is_name_changed": is_name_changed, "file_count": file_count, 
-								"old_file": file_data_old, "new_file": file_data_new})
+								"old_file": file_data_old, "new_file": file_data_new,
+								"file_count": file_count, "total_files": len(dir_data_old.file_data)})
 			if not is_matched:
 				no_matches.append(file_data_old)
 				self.do_callback("file_check", {"is_matched": is_matched, "file_count": file_count, 
 						"old_file": file_data_old, "new_file": None})
 		self.logger.info("Found %s matching (includes %s name changes), %s not matching" % 
 			(str(len(same_files)), str(len(name_changes)), str(len(no_matches))))
+		self.do_callback("compare_results", {"same": same_files, "name_changes":name_changes, "not_matched":no_matches})
 
 	def multi_dict_save(self, dictionary, key, value):
 		if key in dictionary:

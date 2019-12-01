@@ -745,7 +745,7 @@ class MainWindow(wx.Frame):
 			self.update_results()
 			self.set_button_states()
 		else:
-			logging.getLogger().error("Unknown callback name %s", callbackName)
+			logging.getLogger().error("Unknown callback name %s" % (callbackName))
 			self.GetStatusBar().SetStatusText("Error: Unknown callback name %s" % (callbackName))
 
 	def on_stop_button(self, event):  # wxGlade: MainWindow.<event_handler>

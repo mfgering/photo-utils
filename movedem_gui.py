@@ -334,6 +334,112 @@ class MainWindow(wx.Frame):
 			self.status_timer = None
 # end of class MainWindow
 
+class MatchedFilesTable(wx.grid.GridTableBase):
+
+	def __init__(self, main_frame):
+		super().__init__()
+		self.main_frame = main_frame
+		self.col_names = ["Old", "New"]
+		self._rows = self.GetNumberRows()
+		self._cols = self.GetNumberCols()
+	def GetValue(self, row, col):
+		"""
+		GetValue(row, col) -> PyObject
+		
+		Must be overridden to implement accessing the table values as text.
+		"""
+		t = self.tags[row]
+		if col == 0:
+			return t.tag_pattern
+		if col == 1:
+			if t.is_required:
+				return "1"
+			return "0"
+		if col == 2:
+			return self.kind_map[t.tag_kind]
+		raise ValueError
+
+	def SetValue(self, row, col, value):
+		"""
+		SetValue(row, col, value)
+		
+		Must be overridden to implement setting the table values as text.
+		"""
+		t = self.tags[row]
+		if col == 0:
+			t.tag_pattern = value
+		elif col == 1:
+			if value == "1":
+				t.is_required = True
+			else:
+				t.is_required = False
+		elif col == 2:
+			t.tag_kind = phototags.TagKind(int(value))
+
+	def GetNumberRows(self):
+		"""
+		GetNumberRows() -> int
+		
+		Must be overridden to return the number of rows in the table.
+		"""
+		return len(self.tags)
+
+	def GetNumberCols(self):
+		"""
+		GetNumberCols() -> int
+		
+		Must be overridden to return the number of columns in the table.
+		"""
+		return len(self.col_names)
+
+	def GetColLabelValue(self, col):
+		return self.col_names[col]
+
+	def AppendRows(self, numRows=1):
+		for i in range(0, numRows):
+			tagp = phototags.TagPattern("", phototags.TagKind.LITERAL, False)
+			self.tags.append(tagp)
+			self.config.tag_patterns.add(tagp)
+		self.ResetView(self.GetView())
+		return True
+
+	def ResetView(self, grid):
+		"""
+		(Grid) -> Reset the grid view.   Call this to
+		update the grid if rows and columns have been added or deleted
+		"""
+		grid.BeginBatch()
+
+		for current, new, delmsg, addmsg in [
+			(self._rows, self.GetNumberRows(), Grid.GRIDTABLE_NOTIFY_ROWS_DELETED, Grid.GRIDTABLE_NOTIFY_ROWS_APPENDED),
+			(self._cols, self.GetNumberCols(), Grid.GRIDTABLE_NOTIFY_COLS_DELETED, Grid.GRIDTABLE_NOTIFY_COLS_APPENDED),
+		]:
+
+			if new < current:
+				msg = Grid.GridTableMessage(self,delmsg,new,current-new)
+				grid.ProcessTableMessage(msg)
+			elif new > current:
+				msg = Grid.GridTableMessage(self,addmsg,new-current)
+				grid.ProcessTableMessage(msg)
+				self.UpdateValues(grid)
+
+		grid.EndBatch()
+
+		self._rows = self.GetNumberRows()
+		self._cols = self.GetNumberCols()
+		# update the column rendering plugins
+		#self._updateColAttrs(grid)
+
+		# update the scrollbars and the displayed part of the grid
+		grid.AdjustScrollbars()
+		grid.ForceRefresh()
+
+	def UpdateValues(self, grid):
+		"""Update all displayed values"""
+		# This sends an event to the grid table to update all of the values
+		msg = Grid.GridTableMessage(self, Grid.GRIDTABLE_REQUEST_VIEW_GET_VALUES)
+		grid.ProcessTableMessage(msg)
+
 class MovedEmApp(wx.App):
 	def OnInit(self):
 		self.frame = MainWindow(None, wx.ID_ANY, "")

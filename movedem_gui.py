@@ -150,8 +150,9 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		# end wxGlade
 		self.status_timer = None
-		#self.set_status("") #TODO: DELETE
 		try:
+			self.grid_matches_table = MatchedFilesTable(self)
+			self.grid_matches.SetTable(self.grid_matches_table)
 			# redirect text here
 			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
 			sys.stdout = redir
@@ -274,7 +275,7 @@ class MainWindow(wx.Frame):
 				status = "Stopped"
 			self.set_status("Processed %s files: %s" % (self.file_count, status))
 			self.worker_thread.done = True
-			self.update_results()
+			wx.CallAfter(self.update_results)
 			self.set_button_states()
 		else:
 			logging.getLogger().error("Unknown callback name %s" % callback_name)
@@ -310,7 +311,8 @@ class MainWindow(wx.Frame):
 					setattr(self.args, arg_name, bool(i.GetValue()))
 
 	def update_results(self):
-		pass
+		if self.args.compare:
+			self.grid_matches_table.set_matches(self.compare_results["same"])
 
 	def set_status(self, msg, timeout=-1, timeout_msg=None):
 		if self.status_timer is not None:
@@ -335,28 +337,37 @@ class MainWindow(wx.Frame):
 # end of class MainWindow
 
 class MatchedFilesTable(wx.grid.GridTableBase):
-
-	def __init__(self, main_frame):
+	def __init__(self, main_frame, matches=None):
 		super().__init__()
 		self.main_frame = main_frame
-		self.col_names = ["Old", "New"]
+		if matches is None:
+			self.matches = []
+		else:
+			self.matches = matches
+		self.col_names = ["Old", "New", "Name Changed"]
 		self._rows = self.GetNumberRows()
 		self._cols = self.GetNumberCols()
+
+	def set_matches(self, matches):
+		self.matches = matches
+		self.ResetView(self.main_frame.grid_matches)
+
 	def GetValue(self, row, col):
 		"""
 		GetValue(row, col) -> PyObject
 		
 		Must be overridden to implement accessing the table values as text.
 		"""
-		t = self.tags[row]
+		t = self.matches[row]
 		if col == 0:
-			return t.tag_pattern
+			return t[0].get_full_fn()
 		if col == 1:
-			if t.is_required:
-				return "1"
-			return "0"
+			return t[1].get_full_fn()
 		if col == 2:
-			return self.kind_map[t.tag_kind]
+			is_name_changed = t[0].get_fn() != t[1].get_fn()
+			if is_name_changed:
+				return "Yes"
+			return ""
 		raise ValueError
 
 	def SetValue(self, row, col, value):
@@ -382,7 +393,7 @@ class MatchedFilesTable(wx.grid.GridTableBase):
 		
 		Must be overridden to return the number of rows in the table.
 		"""
-		return len(self.tags)
+		return len(self.matches)
 
 	def GetNumberCols(self):
 		"""
@@ -394,14 +405,6 @@ class MatchedFilesTable(wx.grid.GridTableBase):
 
 	def GetColLabelValue(self, col):
 		return self.col_names[col]
-
-	def AppendRows(self, numRows=1):
-		for i in range(0, numRows):
-			tagp = phototags.TagPattern("", phototags.TagKind.LITERAL, False)
-			self.tags.append(tagp)
-			self.config.tag_patterns.add(tagp)
-		self.ResetView(self.GetView())
-		return True
 
 	def ResetView(self, grid):
 		"""
@@ -483,3 +486,4 @@ class RedirectText(object):
 if __name__ == "__main__":
 	app = MovedEmApp(0)
 	app.MainLoop()
+	pass

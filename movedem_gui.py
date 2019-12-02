@@ -69,7 +69,7 @@ class MainWindow(wx.Frame):
 		sizer_1.Add(static_text_1, 0, wx.RIGHT, 10)
 		
 		self.text_ctrl_old_dir = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
-		self.text_ctrl_old_dir.arg_name = "old_dir"
+		self.text_ctrl_old_dir.arg_name = "dir_old"
 		sizer_1.Add(self.text_ctrl_old_dir, 1, wx.EXPAND, 0)
 		
 		self.button_select_old_dir = wx.Button(self.options_page, wx.ID_ANY, "Select...")
@@ -82,7 +82,7 @@ class MainWindow(wx.Frame):
 		sizer_2.Add(static_text_2, 0, wx.RIGHT, 10)
 		
 		self.text_ctrl_new_dir = wx.TextCtrl(self.options_page, wx.ID_ANY, "")
-		self.text_ctrl_new_dir.arg_name = "new_dir"
+		self.text_ctrl_new_dir.arg_name = "dir_new"
 		sizer_2.Add(self.text_ctrl_new_dir, 1, wx.EXPAND, 0)
 		
 		self.button_select_new_dir = wx.Button(self.options_page, wx.ID_ANY, "Select...")
@@ -111,14 +111,15 @@ class MainWindow(wx.Frame):
 		sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
 		sizer_4.Add(sizer_8, 1, wx.EXPAND, 0)
 		
-		self.grid_tags = wx.grid.Grid(self.matches_page, wx.ID_ANY, size=(1, 1))
-		self.grid_tags.CreateGrid(0, 2)
-		self.grid_tags.EnableEditing(0)
-		self.grid_tags.EnableDragRowSize(0)
-		self.grid_tags.SetSelectionMode(wx.grid.Grid.SelectRows)
-		self.grid_tags.SetColLabelValue(0, "Old")
-		self.grid_tags.SetColLabelValue(1, "New")
-		sizer_8.Add(self.grid_tags, 1, wx.ALL | wx.EXPAND, 15)
+		self.grid_matches = wx.grid.Grid(self.matches_page, wx.ID_ANY, size=(1, 1))
+		self.grid_matches.CreateGrid(0, 2)
+		self.grid_matches.EnableEditing(0)
+		self.grid_matches.EnableDragRowSize(0)
+		self.grid_matches.SetSelectionMode(wx.grid.Grid.SelectRows)
+		self.grid_matches.SetColLabelValue(0, "Old")
+		self.grid_matches.SetColLabelValue(1, "New")
+		self.grid_matches.SetMinSize((-1, -1))
+		sizer_8.Add(self.grid_matches, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
 		self.notebook_1_logs.SetScrollRate(10, 10)
@@ -164,6 +165,7 @@ class MainWindow(wx.Frame):
 			self.SetMinClientSize((600, 480))
 			self.SetClientSize((600, 480))
 		except Exception as exc:
+			print(exc) #TODO: REMOVE ME
 			self.set_status("Error: "+str(exc))
 			logging.getLogger().exception(exc)
 		print("App starting")
@@ -263,7 +265,7 @@ class MainWindow(wx.Frame):
 			cnt = callback_data["file_count"]
 			total = callback_data["total_files"]
 	
-			self.set_status("Checked {} of {} ({:.0%} files)".format(cnt, total, cnt/total))
+			self.set_status("Checked {} of {} ({:.0%} files)".format(cnt, total, cnt/total), 5000)
 		elif callback_name == "compare_results":
 			self.compare_results = callback_data
 		elif callback_name == "done":
@@ -302,7 +304,7 @@ class MainWindow(wx.Frame):
 					if len(val_str) > 0 and val_str.lower() != "all":
 						val = int(val_str)
 					setattr(self.args, arg_name, val)
-				elif arg_name == "old_dir" or arg_name == "new_dir":
+				elif arg_name == "dir_old" or arg_name == "dir_new":
 					setattr(self.args, arg_name, i.GetValue())
 				else:
 					setattr(self.args, arg_name, bool(i.GetValue()))
@@ -317,7 +319,11 @@ class MainWindow(wx.Frame):
 		self.GetStatusBar().SetStatusText(msg)
 		if timeout > 0:
 			self.status_timeout_msg = timeout_msg
-			self.status_timer = wx.CallLater(timeout, self.status_timed_out, msg=timeout_msg)
+			threadId = threading.current_thread().ident
+			if self.guiThreadId == threadId:
+				self.status_timer = wx.CallLater(timeout, self.status_timed_out, msg=timeout_msg)
+			else:
+				wx.CallAfter(wx.CallLater, timeout, self.status_timed_out, msg=timeout_msg)			
 
 	def status_timed_out(self, msg=None):
 		if self.status_timer is not None:
@@ -347,7 +353,7 @@ class MovedEmThread(threading.Thread):
 		self.done = False
 
 	def run(self):
-		self.move_checker = movedem.MoveChecker(self.args.old_dir, self.args.new_dir, callback=self.callback, args=self.args)
+		self.move_checker = movedem.MoveChecker(self.args.dir_old, self.args.dir_new, callback=self.callback, args=self.args)
 		if self.args.debug:
 			self.move_checker.logger.setLevel(logging.DEBUG)
 		self.move_checker.do_checks()

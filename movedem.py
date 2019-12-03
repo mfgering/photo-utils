@@ -166,7 +166,7 @@ class FileData(object):
 		return self.dir_name
 
 	def get_full_fn(self):
-		return os.path.join(self.dir_name, self.fn)
+		return os.path.normpath(os.path.join(self.dir_name, self.fn))
 
 	def get_hash(self):
 		if self.file_hash is None:

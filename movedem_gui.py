@@ -111,14 +111,7 @@ class MainWindow(wx.Frame):
 		sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
 		sizer_4.Add(sizer_8, 1, wx.EXPAND, 0)
 		
-		self.grid_matches = wx.grid.Grid(self.matches_page, wx.ID_ANY, size=(1, 1))
-		self.grid_matches.CreateGrid(0, 2)
-		self.grid_matches.EnableEditing(0)
-		self.grid_matches.EnableDragRowSize(0)
-		self.grid_matches.SetSelectionMode(wx.grid.Grid.SelectRows)
-		self.grid_matches.SetColLabelValue(0, "Old")
-		self.grid_matches.SetColLabelValue(1, "New")
-		self.grid_matches.SetMinSize((-1, -1))
+		self.grid_matches = MatchedFilesGrid(self.matches_page, wx.ID_ANY, size=(1, 1))
 		sizer_8.Add(self.grid_matches, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
@@ -151,8 +144,6 @@ class MainWindow(wx.Frame):
 		# end wxGlade
 		self.status_timer = None
 		try:
-			self.grid_matches_table = MatchedFilesTable(self)
-			self.grid_matches.SetTable(self.grid_matches_table)
 			# redirect text here
 			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
 			sys.stdout = redir
@@ -312,7 +303,11 @@ class MainWindow(wx.Frame):
 
 	def update_results(self):
 		if self.args.compare:
-			self.grid_matches_table.set_matches(self.compare_results["same"])
+			self.update_matches_page()
+
+	def update_matches_page(self):
+			self.static_text_matches_header.SetLabelText("Matching Files")
+			self.grid_matches.set_matches(self.compare_results["same"])
 
 	def set_status(self, msg, timeout=-1, timeout_msg=None):
 		if self.status_timer is not None:
@@ -334,7 +329,56 @@ class MainWindow(wx.Frame):
 			self.GetStatusBar().SetStatusText(msg)
 			del self.status_timer
 			self.status_timer = None
+		
 # end of class MainWindow
+
+class MatchedFilesGrid(wx.grid.Grid):
+	def __init__(self, parent, data, size=None):
+		"""parent, data, colnames, plugins=None
+		Initialize a grid using the data defined in data and colnames
+		(see MegaTable for a description of the data format)
+		plugins is a dictionary of columnName -> column renderers.
+		"""
+
+		# The base class must be initialized *first*
+		Grid.Grid.__init__(self, parent, -1)
+		self._table = MatchedFilesTable(parent)
+		self.SetTable(self._table)
+		self.Bind(Grid.EVT_GRID_LABEL_RIGHT_CLICK, self.on_label_rclick)
+
+	def on_label_rclick(self, event):  # wxGlade: MainWindow.<event_handler>
+		row, col = event.GetRow(), event.GetCol()
+		if row == -1: self.col_popup(col, event)
+		elif col == -1: self.row_popup(row, event)
+
+	def col_popup(self, col, event):
+		"""(col, event) -> display a popup menu when a column label is
+		right clicked"""
+		x = self.GetColSize(col)/2
+		menu = wx.Menu()
+		sortID = wx.NewIdRef()
+
+		xo, yo = event.GetPosition()
+		self.SelectCol(col)
+		cols = self.GetSelectedCols()
+		self.Refresh()
+		menu.Append(sortID, "Sort Column")
+
+		def sort(event, self=self, col=col):
+			self._table.sort_col(col)
+
+		if len(cols) == 1:
+			self.Bind(wx.EVT_MENU, sort, id=sortID)
+
+		self.PopupMenu(menu)
+		menu.Destroy()
+		return
+
+	def row_popup(self, row, event):
+		pass
+
+	def set_matches(self, matches):
+		self._table.set_matches(matches)
 
 class MatchedFilesTable(wx.grid.GridTableBase):
 	def __init__(self, main_frame, matches=None):
@@ -347,10 +391,27 @@ class MatchedFilesTable(wx.grid.GridTableBase):
 		self.col_names = ["Old", "New", "Name Changed"]
 		self._rows = self.GetNumberRows()
 		self._cols = self.GetNumberCols()
+		self.col_sort_dir = [False, False, False]
 
-	def set_matches(self, matches):
+	def sort_col(self, col):
+		def get_full_fn_old(item):
+			return item[0].get_full_fn()
+		def get_full_fn_new(item):
+			return item[1].get_full_fn()
+		def get_name_change(item):
+			is_name_changed = item[0].get_fn() != item[1].get_fn()
+			if is_name_changed:
+				return "Yes"
+			return " "
+
+		getkeys = [get_full_fn_old, get_full_fn_new, get_name_change]
+		data_new = sorted(self.matches, key=getkeys[col], reverse=self.col_sort_dir[col])
+		self.set_matches(data_new)
+		self.col_sort_dir = [not x for x in self.col_sort_dir]
+
+	def set_matches(self, matches, *args):
 		self.matches = matches
-		self.ResetView(self.main_frame.grid_matches)
+		self.ResetView(self.GetView())
 
 	def GetValue(self, row, col):
 		"""
@@ -367,7 +428,7 @@ class MatchedFilesTable(wx.grid.GridTableBase):
 			is_name_changed = t[0].get_fn() != t[1].get_fn()
 			if is_name_changed:
 				return "Yes"
-			return ""
+			return " "
 		raise ValueError
 
 	def SetValue(self, row, col, value):
@@ -376,16 +437,7 @@ class MatchedFilesTable(wx.grid.GridTableBase):
 		
 		Must be overridden to implement setting the table values as text.
 		"""
-		t = self.tags[row]
-		if col == 0:
-			t.tag_pattern = value
-		elif col == 1:
-			if value == "1":
-				t.is_required = True
-			else:
-				t.is_required = False
-		elif col == 2:
-			t.tag_kind = phototags.TagKind(int(value))
+		raise ValueError
 
 	def GetNumberRows(self):
 		"""

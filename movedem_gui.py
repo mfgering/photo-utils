@@ -11,7 +11,7 @@ import wx
 
 # begin wxGlade: extracode
 import movedem
-import logging, os, sys, threading, wx
+import logging, os, sys, threading, wx, wx.lib.mixins.listctrl
 import wx.grid as Grid
 # end wxGlade
 
@@ -109,10 +109,19 @@ class MainWindow(wx.Frame):
 		sizer_4.Add(self.static_text_matches_header, 0, wx.ALL, 15)
 		
 		sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer_4.Add(sizer_8, 1, wx.EXPAND, 0)
+		sizer_4.Add(sizer_8, 1, 0, 0)
 		
 		self.grid_matches = MatchedFilesGrid(self.matches_page, wx.ID_ANY, size=(1, 1))
 		sizer_8.Add(self.grid_matches, 1, wx.ALL | wx.EXPAND, 15)
+		
+		sizer_12 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_4.Add(sizer_12, 1, wx.EXPAND, 0)
+		
+		self.list_ctrl_matches = MatchedFilesListCtrl(self.matches_page, wx.ID_ANY, style=wx.LC_HRULES | wx.LC_REPORT | wx.LC_VRULES)
+		self.list_ctrl_matches.AppendColumn("Old", format=wx.LIST_FORMAT_LEFT, width=-1)
+		self.list_ctrl_matches.AppendColumn("New", format=wx.LIST_FORMAT_LEFT, width=-1)
+		self.list_ctrl_matches.AppendColumn("Name Change", format=wx.LIST_FORMAT_LEFT, width=-1)
+		sizer_12.Add(self.list_ctrl_matches, 1, wx.EXPAND, 0)
 		
 		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
 		self.notebook_1_logs.SetScrollRate(10, 10)
@@ -307,7 +316,8 @@ class MainWindow(wx.Frame):
 
 	def update_matches_page(self):
 			self.static_text_matches_header.SetLabelText("Matching Files")
-			self.grid_matches.set_matches(self.compare_results["same"])
+			self.grid_matches.set_matches(self.compare_results["same"]) #TODO: REMOVE?
+			self.list_ctrl_matches.set_items(self.compare_results["same"])
 
 	def set_status(self, msg, timeout=-1, timeout_msg=None):
 		if self.status_timer is not None:
@@ -331,6 +341,35 @@ class MainWindow(wx.Frame):
 			self.status_timer = None
 		
 # end of class MainWindow
+
+#class MatchedFilesListCtrl(wx.ListCtrl):
+class MatchedFilesListCtrl(wx.ListCtrl, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):
+	def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.LC_ICON, validator=wx.DefaultValidator, name=wx.ListCtrlNameStr):
+		wx.ListCtrl.__init__(self, parent, id, pos, size, style, validator, name)
+		wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin.__init__(self)
+		self.col_sort_mixin = None
+		self.col_sort_mixin = wx.lib.mixins.listctrl.ColumnSorterMixin.__init__(self, 3)
+		self.itemDataMap = {}
+
+	def GetListCtrl(self):
+		return self
+	
+	def set_items(self, items):
+		self.DeleteAllItems()
+		index = 0
+		for item in items:
+			old_ffn = item[0].get_full_fn()
+			new_ffn = item[1].get_full_fn()
+			i_ref = self.InsertItem(index, old_ffn)
+			self.SetItem(i_ref, 1, new_ffn)
+			is_name_changed = item[0].get_fn() != item[1].get_fn()
+			is_changed_str = ""
+			if is_name_changed:
+				is_changed_str = "Yes"
+			self.SetItem(i_ref, 2, is_changed_str)
+			self.SetItemData(i_ref, i_ref)
+			self.itemDataMap[i_ref] = (old_ffn, new_ffn, is_changed_str)
+			index = index + 1
 
 class MatchedFilesGrid(wx.grid.Grid):
 	def __init__(self, parent, data, size=None):
@@ -378,7 +417,8 @@ class MatchedFilesGrid(wx.grid.Grid):
 		pass
 
 	def set_matches(self, matches):
-		self._table.set_matches(matches)
+		#self._table.set_matches(matches) #TODO: FIX
+		pass
 
 class MatchedFilesTable(wx.grid.GridTableBase):
 	def __init__(self, main_frame, matches=None):

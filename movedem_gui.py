@@ -343,7 +343,7 @@ class MainWindow(wx.Frame):
 # end of class MainWindow
 
 #class MatchedFilesListCtrl(wx.ListCtrl):
-class MatchedFilesListCtrl(wx.ListCtrl, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):
+class MatchedFilesListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):
 	def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.LC_ICON, validator=wx.DefaultValidator, name=wx.ListCtrlNameStr):
 		wx.ListCtrl.__init__(self, parent, id, pos, size, style, validator, name)
 		wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin.__init__(self)

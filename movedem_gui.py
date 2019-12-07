@@ -368,24 +368,29 @@ class MatchedFilesListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin
 
 	def OnGetItemText(self, item, col):
 		index = self.itemIndexMap[item]
-		data = self.itemDataMap[index]
+		#data = self.itemDataMap[index]
+		data = self.itemDataMap[item]
 		return data[col]
 
 	def GetColumnSorter(self):
 		return self._my_col_sorter
 	
-	def _my_col_sorter(self, key1):
-		item = self.itemDataMap[self.itemIndexMap[key1]]
+	def _my_col_sorter(self, key):
+		#item = self.itemDataMap[self.itemIndexMap[key]]
+		item = self.items[key]
 		return item[self._col]
 
 	def SortItems(self, sorter):
-		items = list(self.itemDataMap.keys())
-		sorted(items, key=sorter)
+		#items = list(self.itemDataMap.keys())
+		idx_arr = [ x for x in range(len(self.items))]
+		self.sort_col, self.sort_flag = self.GetSortState()
+		sorted(idx_arr, key=sorter, reverse=self.sort_flag)
 		#items.sort(key1=sorter, key2=sorter)
 		self.itemIndexMap = items
 		self.Refresh()
 
 	def set_items(self, items):
+		self.items = items
 		self.SetItemCount(len(items))
 		# BELOW IS OLD
 		#self.DeleteAllItems()

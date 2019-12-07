@@ -351,7 +351,6 @@ class MatchedFilesListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin
 		self.SetColumnWidth(1, 200)
 		self.SetColumnWidth(2, 50)
 		self.col_sort_mixin = wx.lib.mixins.listctrl.ColumnSorterMixin.__init__(self, 3)
-		self.itemDataMap = {}
 		self.itemIndexMap = {}
 
 	def GetListCtrl(self):
@@ -367,49 +366,39 @@ class MatchedFilesListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin
 		return -1
 
 	def OnGetItemText(self, item, col):
-		index = self.itemIndexMap[item]
-		#data = self.itemDataMap[index]
-		data = self.itemDataMap[item]
-		return data[col]
+		return self.get_text_val(item, col)
+
+	def get_text_val(self, item_idx, col):
+		index = self.itemIndexMap[item_idx]
+		data = self.items[index]
+		if col == 0:
+			val = data[0].get_full_fn()
+		elif col == 1:
+			val = data[1].get_full_fn()
+		elif col == 2:
+			is_name_changed = data[0].get_fn() != data[1].get_fn()
+			val = ""
+			if is_name_changed:
+				val = "Yes"
+		else:
+			raise ValueError("Bad column index")
+		return val
 
 	def GetColumnSorter(self):
 		return self._my_col_sorter
 	
 	def _my_col_sorter(self, key):
-		#item = self.itemDataMap[self.itemIndexMap[key]]
-		item = self.items[key]
-		return item[self._col]
+		return self.get_text_val(key, self._col)
 
 	def SortItems(self, sorter):
-		#items = list(self.itemDataMap.keys())
-		idx_arr = [ x for x in range(len(self.items))]
 		self.sort_col, self.sort_flag = self.GetSortState()
-		sorted(idx_arr, key=sorter, reverse=self.sort_flag)
-		#items.sort(key1=sorter, key2=sorter)
-		self.itemIndexMap = items
+		self.itemIndexMap = sorted(self.itemIndexMap, key=sorter, reverse=self.sort_flag)
 		self.Refresh()
 
 	def set_items(self, items):
 		self.items = items
 		self.SetItemCount(len(items))
-		# BELOW IS OLD
-		#self.DeleteAllItems()
-		index = 0
-		for item in items:
-			old_ffn = item[0].get_full_fn()
-			new_ffn = item[1].get_full_fn()
-			#i_ref = self.InsertItem(index, old_ffn)
-			i_ref = index
-			#self.SetItem(i_ref, 1, new_ffn)
-			is_name_changed = item[0].get_fn() != item[1].get_fn()
-			is_changed_str = ""
-			if is_name_changed:
-				is_changed_str = "Yes"
-			#self.SetItem(i_ref, 2, is_changed_str)
-			#self.SetItemData(i_ref, i_ref)
-			self.itemDataMap[i_ref] = (old_ffn, new_ffn, is_changed_str)
-			index = index + 1
-		self.itemIndexMap = list(self.itemDataMap.keys())
+		self.itemIndexMap = [x for x in range(len(items))]
 
 class MatchedFilesGrid(wx.grid.Grid):
 	def __init__(self, parent, data, size=None):

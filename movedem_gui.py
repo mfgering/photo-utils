@@ -117,10 +117,7 @@ class MainWindow(wx.Frame):
 		sizer_12 = wx.BoxSizer(wx.HORIZONTAL)
 		sizer_4.Add(sizer_12, 1, wx.EXPAND, 0)
 		
-		self.list_ctrl_matches = MatchedFilesListCtrl(self.matches_page, wx.ID_ANY, style=wx.LC_HRULES | wx.LC_REPORT | wx.LC_VRULES)
-		self.list_ctrl_matches.AppendColumn("Old", format=wx.LIST_FORMAT_LEFT, width=-1)
-		self.list_ctrl_matches.AppendColumn("New", format=wx.LIST_FORMAT_LEFT, width=-1)
-		self.list_ctrl_matches.AppendColumn("Name Change", format=wx.LIST_FORMAT_LEFT, width=-1)
+		self.list_ctrl_matches = MatchedFilesListCtrl(self.matches_page, wx.ID_ANY, style=wx.LC_HRULES | wx.LC_REPORT | wx.LC_VIRTUAL | wx.LC_VRULES)
 		sizer_12.Add(self.list_ctrl_matches, 1, wx.EXPAND, 0)
 		
 		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
@@ -342,34 +339,72 @@ class MainWindow(wx.Frame):
 		
 # end of class MainWindow
 
-#class MatchedFilesListCtrl(wx.ListCtrl):
 class MatchedFilesListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):
+	# http://code.activestate.com/recipes/426407-columnsortermixin-with-a-virtual-wxlistctrl/
 	def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.LC_ICON, validator=wx.DefaultValidator, name=wx.ListCtrlNameStr):
 		wx.ListCtrl.__init__(self, parent, id, pos, size, style, validator, name)
 		wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin.__init__(self)
-		self.col_sort_mixin = None
+		self.InsertColumn(0, "Old")
+		self.InsertColumn(1, "New")
+		self.InsertColumn(2, "Name Changed")
+		self.SetColumnWidth(0, 200)
+		self.SetColumnWidth(1, 200)
+		self.SetColumnWidth(2, 50)
 		self.col_sort_mixin = wx.lib.mixins.listctrl.ColumnSorterMixin.__init__(self, 3)
 		self.itemDataMap = {}
+		self.itemIndexMap = {}
 
 	def GetListCtrl(self):
 		return self
 	
+	def GetColumnCount(self):
+		return 3
+
+	def OnGetItemAttr(self, item):
+		return None
+
+	def OnGetItemImage(self, item):
+		return -1
+
+	def OnGetItemText(self, item, col):
+		index = self.itemIndexMap[item]
+		data = self.itemDataMap[index]
+		return data[col]
+
+	def GetColumnSorter(self):
+		return self._my_col_sorter
+	
+	def _my_col_sorter(self, key1):
+		item = self.itemDataMap[self.itemIndexMap[key1]]
+		return item[self._col]
+
+	def SortItems(self, sorter):
+		items = list(self.itemDataMap.keys())
+		sorted(items, key=sorter)
+		#items.sort(key1=sorter, key2=sorter)
+		self.itemIndexMap = items
+		self.Refresh()
+
 	def set_items(self, items):
-		self.DeleteAllItems()
+		self.SetItemCount(len(items))
+		# BELOW IS OLD
+		#self.DeleteAllItems()
 		index = 0
 		for item in items:
 			old_ffn = item[0].get_full_fn()
 			new_ffn = item[1].get_full_fn()
-			i_ref = self.InsertItem(index, old_ffn)
-			self.SetItem(i_ref, 1, new_ffn)
+			#i_ref = self.InsertItem(index, old_ffn)
+			i_ref = index
+			#self.SetItem(i_ref, 1, new_ffn)
 			is_name_changed = item[0].get_fn() != item[1].get_fn()
 			is_changed_str = ""
 			if is_name_changed:
 				is_changed_str = "Yes"
-			self.SetItem(i_ref, 2, is_changed_str)
-			self.SetItemData(i_ref, i_ref)
+			#self.SetItem(i_ref, 2, is_changed_str)
+			#self.SetItemData(i_ref, i_ref)
 			self.itemDataMap[i_ref] = (old_ffn, new_ffn, is_changed_str)
 			index = index + 1
+		self.itemIndexMap = list(self.itemDataMap.keys())
 
 class MatchedFilesGrid(wx.grid.Grid):
 	def __init__(self, parent, data, size=None):

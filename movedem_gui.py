@@ -349,14 +349,15 @@ class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterM
 	def get_column_names(self):
 		"""Return a list of column name strings"""
 
+	@abc.abstractmethod
 	def get_column_widths(self):
-		return (200, 200, 40)
+		"""Return a list of column width integers"""
 
 	def GetListCtrl(self):
 		return self
 	
 	def GetColumnCount(self):
-		return 3
+		return len(self.get_column_names())
 
 	def OnGetItemAttr(self, item):
 		return None
@@ -367,24 +368,9 @@ class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterM
 	def OnGetItemText(self, item, col):
 		return self.get_text_val(item, col)
 
+	@abc.abstractmethod
 	def get_text_val(self, item_idx, col, mapped=True):
-		if mapped:
-			index = self.itemIndexMap[item_idx]
-		else:
-			index = item_idx
-		data = self.items[index]
-		if col == 0:
-			val = data[0].get_full_fn()
-		elif col == 1:
-			val = data[1].get_full_fn()
-		elif col == 2:
-			is_name_changed = data[0].get_fn() != data[1].get_fn()
-			val = ""
-			if is_name_changed:
-				val = "Yes"
-		else:
-			raise ValueError("Bad column index")
-		return val
+		"""Must be overridden"""
 
 	def GetColumnSorter(self):
 		return self._my_col_sorter
@@ -427,6 +413,24 @@ class MatchedFilesListCtrl(AbstractFileInfoListCtrl):
 	def get_column_widths(self):
 		return (200, 200, 40)
 
+	def get_text_val(self, item_idx, col, mapped=True):
+		if mapped:
+			index = self.itemIndexMap[item_idx]
+		else:
+			index = item_idx
+		data = self.items[index]
+		if col == 0:
+			val = data[0].get_full_fn()
+		elif col == 1:
+			val = data[1].get_full_fn()
+		elif col == 2:
+			is_name_changed = data[0].get_fn() != data[1].get_fn()
+			val = ""
+			if is_name_changed:
+				val = "Yes"
+		else:
+			raise ValueError("Bad column index")
+		return val
 
 class MovedEmApp(wx.App):
 	def OnInit(self):

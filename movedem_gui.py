@@ -11,7 +11,7 @@ import wx
 
 # begin wxGlade: extracode
 import movedem
-import logging, os, sys, threading, wx, wx.lib.mixins.listctrl
+import abc, logging, os, sys, threading, wx, wx.lib.mixins.listctrl
 import wx.grid as Grid
 # end wxGlade
 
@@ -107,12 +107,6 @@ class MainWindow(wx.Frame):
 		self.static_text_matches_header = wx.StaticText(self.matches_page, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
 		self.static_text_matches_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
 		sizer_4.Add(self.static_text_matches_header, 0, wx.ALL, 15)
-		
-		sizer_8 = wx.BoxSizer(wx.HORIZONTAL)
-		sizer_4.Add(sizer_8, 1, 0, 0)
-		
-		self.grid_matches = MatchedFilesGrid(self.matches_page, wx.ID_ANY, size=(1, 1))
-		sizer_8.Add(self.grid_matches, 1, wx.ALL | wx.EXPAND, 15)
 		
 		sizer_12 = wx.BoxSizer(wx.HORIZONTAL)
 		sizer_4.Add(sizer_12, 1, wx.EXPAND, 0)
@@ -313,7 +307,6 @@ class MainWindow(wx.Frame):
 
 	def update_matches_page(self):
 			self.static_text_matches_header.SetLabelText("Matching Files")
-			self.grid_matches.set_matches(self.compare_results["same"]) #TODO: REMOVE?
 			self.list_ctrl_matches.set_items(self.compare_results["same"])
 
 	def set_status(self, msg, timeout=-1, timeout_msg=None):
@@ -339,19 +332,25 @@ class MainWindow(wx.Frame):
 		
 # end of class MainWindow
 
-class MatchedFilesListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):
+class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):
 	# http://code.activestate.com/recipes/426407-columnsortermixin-with-a-virtual-wxlistctrl/
 	def __init__(self, parent, id=wx.ID_ANY, pos=wx.DefaultPosition, size=wx.DefaultSize, style=wx.LC_ICON, validator=wx.DefaultValidator, name=wx.ListCtrlNameStr):
 		wx.ListCtrl.__init__(self, parent, id, pos, size, style, validator, name)
 		wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin.__init__(self)
-		self.InsertColumn(0, "Old")
-		self.InsertColumn(1, "New")
-		self.InsertColumn(2, "Name Changed")
-		self.SetColumnWidth(0, 200)
-		self.SetColumnWidth(1, 200)
-		self.SetColumnWidth(2, 50)
-		self.col_sort_mixin = wx.lib.mixins.listctrl.ColumnSorterMixin.__init__(self, 3)
+		col_names = self.get_column_names()
+		col_widths = self.get_column_widths()
+		for i in range(self.GetColumnCount()):
+			self.InsertColumn(i, col_names[i])
+			self.SetColumnWidth(i, col_widths[i])
+		self.col_sort_mixin = wx.lib.mixins.listctrl.ColumnSorterMixin.__init__(self, self.GetColumnCount())
 		self.itemIndexMap = {}
+
+	@abc.abstractmethod
+	def get_column_names(self):
+		"""Return a list of column name strings"""
+
+	def get_column_widths(self):
+		return (200, 200, 40)
 
 	def GetListCtrl(self):
 		return self
@@ -368,8 +367,11 @@ class MatchedFilesListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin
 	def OnGetItemText(self, item, col):
 		return self.get_text_val(item, col)
 
-	def get_text_val(self, item_idx, col):
-		index = self.itemIndexMap[item_idx]
+	def get_text_val(self, item_idx, col, mapped=True):
+		if mapped:
+			index = self.itemIndexMap[item_idx]
+		else:
+			index = item_idx
 		data = self.items[index]
 		if col == 0:
 			val = data[0].get_full_fn()
@@ -388,181 +390,43 @@ class MatchedFilesListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin
 		return self._my_col_sorter
 	
 	def _my_col_sorter(self, key):
-		return self.get_text_val(key, self._col)
+		return self.get_text_val(key, self._col, mapped=False)
 
 	def SortItems(self, sorter):
 		self.sort_col, self.sort_flag = self.GetSortState()
-		self.itemIndexMap = sorted(self.itemIndexMap, key=sorter, reverse=self.sort_flag)
+		new_map = sorted(self.itemIndexMap, key=self._my_col_sorter, reverse=self.sort_flag)
+		self.itemIndexMap = new_map
 		self.Refresh()
+
+	def _check_order(self, map, is_reversed, col):
+		"""This is for debugging"""
+		val = None
+		for i in range(len(map)):
+			idx_mapped = map[i]
+			item = self.items[idx_mapped]
+			prev_val = val
+			val = self.get_text_val(idx_mapped, col, mapped=False)
+			print("%s[%s]: %s" % (str(i), str(idx_mapped), val))
+			if prev_val is not None:
+				if is_reversed:
+					is_ok = prev_val >= val
+				else:
+					is_ok = prev_val <= val
+				if not is_ok:
+					print("%s: prev: %s, curr: %s" % (str(i), prev_val, val))
 
 	def set_items(self, items):
 		self.items = items
 		self.SetItemCount(len(items))
 		self.itemIndexMap = [x for x in range(len(items))]
 
-class MatchedFilesGrid(wx.grid.Grid):
-	def __init__(self, parent, data, size=None):
-		"""parent, data, colnames, plugins=None
-		Initialize a grid using the data defined in data and colnames
-		(see MegaTable for a description of the data format)
-		plugins is a dictionary of columnName -> column renderers.
-		"""
+class MatchedFilesListCtrl(AbstractFileInfoListCtrl):
+	def get_column_names(self):
+		return ("Old", "New", "Name Changed")
 
-		# The base class must be initialized *first*
-		Grid.Grid.__init__(self, parent, -1)
-		self._table = MatchedFilesTable(parent)
-		self.SetTable(self._table)
-		self.Bind(Grid.EVT_GRID_LABEL_RIGHT_CLICK, self.on_label_rclick)
+	def get_column_widths(self):
+		return (200, 200, 40)
 
-	def on_label_rclick(self, event):  # wxGlade: MainWindow.<event_handler>
-		row, col = event.GetRow(), event.GetCol()
-		if row == -1: self.col_popup(col, event)
-		elif col == -1: self.row_popup(row, event)
-
-	def col_popup(self, col, event):
-		"""(col, event) -> display a popup menu when a column label is
-		right clicked"""
-		x = self.GetColSize(col)/2
-		menu = wx.Menu()
-		sortID = wx.NewIdRef()
-
-		xo, yo = event.GetPosition()
-		self.SelectCol(col)
-		cols = self.GetSelectedCols()
-		self.Refresh()
-		menu.Append(sortID, "Sort Column")
-
-		def sort(event, self=self, col=col):
-			self._table.sort_col(col)
-
-		if len(cols) == 1:
-			self.Bind(wx.EVT_MENU, sort, id=sortID)
-
-		self.PopupMenu(menu)
-		menu.Destroy()
-		return
-
-	def row_popup(self, row, event):
-		pass
-
-	def set_matches(self, matches):
-		#self._table.set_matches(matches) #TODO: FIX
-		pass
-
-class MatchedFilesTable(wx.grid.GridTableBase):
-	def __init__(self, main_frame, matches=None):
-		super().__init__()
-		self.main_frame = main_frame
-		if matches is None:
-			self.matches = []
-		else:
-			self.matches = matches
-		self.col_names = ["Old", "New", "Name Changed"]
-		self._rows = self.GetNumberRows()
-		self._cols = self.GetNumberCols()
-		self.col_sort_dir = [False, False, False]
-
-	def sort_col(self, col):
-		def get_full_fn_old(item):
-			return item[0].get_full_fn()
-		def get_full_fn_new(item):
-			return item[1].get_full_fn()
-		def get_name_change(item):
-			is_name_changed = item[0].get_fn() != item[1].get_fn()
-			if is_name_changed:
-				return "Yes"
-			return " "
-
-		getkeys = [get_full_fn_old, get_full_fn_new, get_name_change]
-		data_new = sorted(self.matches, key=getkeys[col], reverse=self.col_sort_dir[col])
-		self.set_matches(data_new)
-		self.col_sort_dir = [not x for x in self.col_sort_dir]
-
-	def set_matches(self, matches, *args):
-		self.matches = matches
-		self.ResetView(self.GetView())
-
-	def GetValue(self, row, col):
-		"""
-		GetValue(row, col) -> PyObject
-		
-		Must be overridden to implement accessing the table values as text.
-		"""
-		t = self.matches[row]
-		if col == 0:
-			return t[0].get_full_fn()
-		if col == 1:
-			return t[1].get_full_fn()
-		if col == 2:
-			is_name_changed = t[0].get_fn() != t[1].get_fn()
-			if is_name_changed:
-				return "Yes"
-			return " "
-		raise ValueError
-
-	def SetValue(self, row, col, value):
-		"""
-		SetValue(row, col, value)
-		
-		Must be overridden to implement setting the table values as text.
-		"""
-		raise ValueError
-
-	def GetNumberRows(self):
-		"""
-		GetNumberRows() -> int
-		
-		Must be overridden to return the number of rows in the table.
-		"""
-		return len(self.matches)
-
-	def GetNumberCols(self):
-		"""
-		GetNumberCols() -> int
-		
-		Must be overridden to return the number of columns in the table.
-		"""
-		return len(self.col_names)
-
-	def GetColLabelValue(self, col):
-		return self.col_names[col]
-
-	def ResetView(self, grid):
-		"""
-		(Grid) -> Reset the grid view.   Call this to
-		update the grid if rows and columns have been added or deleted
-		"""
-		grid.BeginBatch()
-
-		for current, new, delmsg, addmsg in [
-			(self._rows, self.GetNumberRows(), Grid.GRIDTABLE_NOTIFY_ROWS_DELETED, Grid.GRIDTABLE_NOTIFY_ROWS_APPENDED),
-			(self._cols, self.GetNumberCols(), Grid.GRIDTABLE_NOTIFY_COLS_DELETED, Grid.GRIDTABLE_NOTIFY_COLS_APPENDED),
-		]:
-
-			if new < current:
-				msg = Grid.GridTableMessage(self,delmsg,new,current-new)
-				grid.ProcessTableMessage(msg)
-			elif new > current:
-				msg = Grid.GridTableMessage(self,addmsg,new-current)
-				grid.ProcessTableMessage(msg)
-				self.UpdateValues(grid)
-
-		grid.EndBatch()
-
-		self._rows = self.GetNumberRows()
-		self._cols = self.GetNumberCols()
-		# update the column rendering plugins
-		#self._updateColAttrs(grid)
-
-		# update the scrollbars and the displayed part of the grid
-		grid.AdjustScrollbars()
-		grid.ForceRefresh()
-
-	def UpdateValues(self, grid):
-		"""Update all displayed values"""
-		# This sends an event to the grid table to update all of the values
-		msg = Grid.GridTableMessage(self, Grid.GRIDTABLE_REQUEST_VIEW_GET_VALUES)
-		grid.ProcessTableMessage(msg)
 
 class MovedEmApp(wx.App):
 	def OnInit(self):

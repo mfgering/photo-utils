@@ -304,10 +304,14 @@ class MainWindow(wx.Frame):
 	def update_results(self):
 		if self.args.compare:
 			self.update_matches_page()
+			self.update_not_matched_page()
 
 	def update_matches_page(self):
-			self.static_text_matches_header.SetLabelText("Matching Files")
-			self.list_ctrl_matches.set_items(self.compare_results["same"])
+		self.static_text_matches_header.SetLabelText("Matching Files")
+		self.list_ctrl_matches.set_items(self.compare_results["same"])
+
+	def update_not_matched_page(self):
+		pass
 
 	def set_status(self, msg, timeout=-1, timeout_msg=None):
 		if self.status_timer is not None:

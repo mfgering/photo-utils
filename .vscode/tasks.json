@@ -52,6 +52,17 @@
         "isDefault": true
       },
       "problemMatcher": []
+    },
+    {
+      "label": "build movedem-gui executable",
+      "type": "shell",
+      "command": "pyinstaller --add-binary app-icon.jpg;. -i app-icon.ico -F --noconsole movedem_gui.py",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
     }
+
   ]
 }

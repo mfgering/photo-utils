@@ -116,7 +116,7 @@ class MainWindow(wx.Frame):
 		
 		self.matches_page = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.matches_page.SetToolTip("Files that match in old and new directories")
-		self.notebook_1.AddPage(self.matches_page, "Matches")
+		self.notebook_1.AddPage(self.matches_page, "Matched")
 		
 		sizer_4 = wx.BoxSizer(wx.VERTICAL)
 		
@@ -128,7 +128,26 @@ class MainWindow(wx.Frame):
 		sizer_4.Add(sizer_12, 1, wx.EXPAND, 0)
 		
 		self.list_ctrl_matches = MatchedFilesListCtrl(self.matches_page, wx.ID_ANY, style=wx.LC_HRULES | wx.LC_REPORT | wx.LC_VIRTUAL | wx.LC_VRULES)
+		self.list_ctrl_matches.SetToolTip("Sort by clicking column headers, drag/drop columns to re-order.")
 		sizer_12.Add(self.list_ctrl_matches, 1, wx.EXPAND, 0)
+		
+		self.updated_page = wx.Panel(self.notebook_1, wx.ID_ANY)
+		self.updated_page.SetToolTip("Files with the same name, different contents")
+		self.notebook_1.AddPage(self.updated_page, "Updated")
+		
+		sizer_14 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.static_text_updated_header = wx.StaticText(self.updated_page, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
+		self.static_text_updated_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+		self.static_text_updated_header.SetToolTip("Files that have the same name, but different contents")
+		sizer_14.Add(self.static_text_updated_header, 0, wx.ALL, 15)
+		
+		sizer_15 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_14.Add(sizer_15, 1, wx.EXPAND, 0)
+		
+		self.list_ctrl_updated = UpdatedFilesListCtrl(self.updated_page, wx.ID_ANY, style=wx.LC_HRULES | wx.LC_REPORT | wx.LC_VIRTUAL | wx.LC_VRULES)
+		self.list_ctrl_updated.SetToolTip("Sort by clicking column headers.")
+		sizer_15.Add(self.list_ctrl_updated, 1, wx.EXPAND, 0)
 		
 		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
 		self.notebook_1_logs.SetScrollRate(10, 10)
@@ -140,6 +159,8 @@ class MainWindow(wx.Frame):
 		sizer_9.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_logs.SetSizer(sizer_9)
+		
+		self.updated_page.SetSizer(sizer_14)
 		
 		self.matches_page.SetSizer(sizer_4)
 		
@@ -160,6 +181,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self.on_rclick_item, self.list_ctrl_matches)
+		self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self.on_rclick_item, self.list_ctrl_updated)
 		# end wxGlade
 		self.status_timer = None
 		try:
@@ -324,6 +346,7 @@ class MainWindow(wx.Frame):
 		if self.args.compare:
 			self.update_matches_page()
 			self.update_not_matched_page()
+			self.update_updated_page()
 
 	def update_matches_page(self):
 		self.static_text_matches_header.SetLabelText("Matching Files")
@@ -332,6 +355,10 @@ class MainWindow(wx.Frame):
 	def update_not_matched_page(self):
 		self.static_text_unmatched_header.SetLabelText("Unmatched Files")
 		self.list_ctrl_unmatched.set_items(self.compare_results["not_matched"])
+
+	def update_updated_page(self):
+		self.static_text_updated_header.SetLabelText("Possibly Updated Files")
+		self.list_ctrl_updated.set_items(self.compare_results["maybe_updated"])
 
 	def set_status(self, msg, timeout=-1, timeout_msg=None):
 		if self.status_timer is not None:
@@ -473,6 +500,32 @@ class MatchedFilesListCtrl(AbstractFileInfoListCtrl):
 			is_name_changed = data[0].get_fn() != data[1].get_fn()
 			val = ""
 			if is_name_changed:
+				val = "Yes"
+		else:
+			raise ValueError("Bad column index")
+		return val
+
+class UpdatedFilesListCtrl(AbstractFileInfoListCtrl):
+	def get_column_names(self):
+		return ("Old", "New", "More Recent")
+
+	def get_column_widths(self):
+		return (200, 200, 40)
+
+	def get_text_val(self, item_idx, col, mapped=True):
+		if mapped:
+			index = self.itemIndexMap[item_idx]
+		else:
+			index = item_idx
+		data = self.items[index]
+		if col == 0:
+			val = data[0].get_full_fn()
+		elif col == 1:
+			val = data[1].get_full_fn()
+		elif col == 2:
+			is_newer_more_recent = data[0].get_mtime() < data[1].get_mtime()
+			val = "No"
+			if is_newer_more_recent:
 				val = "Yes"
 		else:
 			raise ValueError("Bad column index")

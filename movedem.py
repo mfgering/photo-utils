@@ -205,6 +205,10 @@ class FileData(object):
 			self.file_hash = file_hash.hexdigest()
 		return self.file_hash
 	
+	def get_mtime(self):
+		stats = os.stat(self.get_full_fn())
+		return os.stat_result(stats).st_mtime
+	
 	def __str__(self):
 		s = "%s: dir: %s size: %s hash: %s" % (self.get_fn(), self.get_dir_name(), self.get_size(), self.get_hash())
 		return s

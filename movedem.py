@@ -69,9 +69,11 @@ class MoveChecker(object):
 		self.do_callback("start_compare", {"dir_data_old": dir_data_old, "dir_data_new": dir_data_new})
 		# Init multi-dicts for the name and size fields
 		mdict_size_new = {}
+		mdict_fn_new = {}
+		mdict_fn_matches = {}
 		for file_data in dir_data_new.file_data:
 			self.multi_dict_save(mdict_size_new, file_data.get_size(), file_data)
-
+			self.multi_dict_save(mdict_fn_new, file_data.get_fn(), file_data)
 		same_files = []
 		no_matches = []
 		name_changes = []
@@ -97,13 +99,36 @@ class MoveChecker(object):
 								"is_name_changed": is_name_changed, "file_count": file_count, 
 								"old_file": file_data_old, "new_file": file_data_new,
 								"file_count": file_count, "total_files": len(dir_data_old.file_data)})
+			else:
+				pass #TODO: FIX
+				old_fn = file_data_old.get_fn()
+				
+				if old_fn in mdict_fn_new:
+					self.multi_dict_save(mdict_fn_matches, old_fn, file_data_old)
 			if not is_matched:
 				no_matches.append(file_data_old)
 				self.do_callback("file_check", {"is_matched": False, "is_name_changed": False, "file_count": file_count, 
 						"old_file": file_data_old, "new_file": None, "total_files": len(dir_data_old.file_data)})
-		self.logger.info("Found %s matching (includes %s name changes), %s not matching" % 
-			(str(len(same_files)), str(len(name_changes)), str(len(no_matches))))
-		self.do_callback("compare_results", {"same": same_files, "name_changes":name_changes, "not_matched":no_matches})
+		maybe_updated = []
+		for unmatched in no_matches:
+			#Check to see if maybe the contents were updated (names are same)
+			# The old and new file names are equal, the contents are not equal.
+			old_fn = unmatched.get_fn()
+			if old_fn in mdict_fn_matches:
+				old_files = mdict_fn_matches[old_fn]
+				if type(old_files) != list:
+					old_files = (old_files,)
+				for old_file_info in old_files:
+					#if old_fn in mdict_fn_new: #TODO: Always true??
+					new_files = mdict_fn_new[old_fn]
+					if type(new_files) != list:
+						new_files = (new_files,)
+					for new_file_info in new_files:
+						maybe_updated.append((old_file_info, new_file_info))
+		self.logger.info("Found %s matching (includes %s name changes), %s not matching, %s possible updates" % 
+			(str(len(same_files)), str(len(name_changes)), str(len(no_matches)), str(len(maybe_updated))))
+		self.do_callback("compare_results", {"same": same_files, "name_changes":name_changes, 
+											"not_matched":no_matches, "maybe_updated": maybe_updated})
 
 	def multi_dict_save(self, dictionary, key, value):
 		if key in dictionary:

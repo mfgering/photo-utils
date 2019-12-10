@@ -98,6 +98,22 @@ class MainWindow(wx.Frame):
 		self.button_stop.Enable(False)
 		sizer_7.Add(self.button_stop, 0, wx.BOTTOM | wx.LEFT | wx.RIGHT, 10)
 		
+		self.unmatched_page = wx.Panel(self.notebook_1, wx.ID_ANY)
+		self.unmatched_page.SetToolTip("Old files without matching new files\n")
+		self.notebook_1.AddPage(self.unmatched_page, "Unmatched")
+		
+		sizer_8 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.static_text_unmatched_header = wx.StaticText(self.unmatched_page, wx.ID_ANY, "Not yet set\n", style=wx.ALIGN_CENTER)
+		self.static_text_unmatched_header.SetFont(wx.Font(14, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+		sizer_8.Add(self.static_text_unmatched_header, 0, wx.ALL, 15)
+		
+		sizer_13 = wx.BoxSizer(wx.HORIZONTAL)
+		sizer_8.Add(sizer_13, 1, wx.EXPAND, 0)
+		
+		self.list_ctrl_unmatched = UnmatchedFilesListCtrl(self.unmatched_page, wx.ID_ANY, style=wx.LC_HRULES | wx.LC_REPORT | wx.LC_VIRTUAL | wx.LC_VRULES)
+		sizer_13.Add(self.list_ctrl_unmatched, 1, wx.EXPAND, 0)
+		
 		self.matches_page = wx.Panel(self.notebook_1, wx.ID_ANY)
 		self.matches_page.SetToolTip("Files that match in old and new directories")
 		self.notebook_1.AddPage(self.matches_page, "Matches")
@@ -127,6 +143,8 @@ class MainWindow(wx.Frame):
 		
 		self.matches_page.SetSizer(sizer_4)
 		
+		self.unmatched_page.SetSizer(sizer_8)
+		
 		self.options_page.SetSizer(sizer_3)
 		
 		self.SetSizer(main_sizer)
@@ -141,6 +159,7 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_dir_select, self.button_select_new_dir)
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
+		self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self.on_rclick_item, self.list_ctrl_matches)
 		# end wxGlade
 		self.status_timer = None
 		try:
@@ -157,7 +176,6 @@ class MainWindow(wx.Frame):
 			self.SetMinClientSize((600, 480))
 			self.SetClientSize((600, 480))
 		except Exception as exc:
-			print(exc) #TODO: REMOVE ME
 			self.set_status("Error: "+str(exc))
 			logging.getLogger().exception(exc)
 		print("App starting")
@@ -218,6 +236,7 @@ class MainWindow(wx.Frame):
 
 	def reset_results(self):
 		self.file_count = 0
+		self.static_text_matches_header.SetLabelText("No results yet")
 		#self.static_text_tags_header.SetLabelText("No results yet")
 		#self.static_text_tags_missing_header.SetLabelText("No results yet")
 		#self.static_text_tags_bad_header.SetLabelText("No results yet")
@@ -311,7 +330,8 @@ class MainWindow(wx.Frame):
 		self.list_ctrl_matches.set_items(self.compare_results["same"])
 
 	def update_not_matched_page(self):
-		pass
+		self.static_text_unmatched_header.SetLabelText("Unmatched Files")
+		self.list_ctrl_unmatched.set_items(self.compare_results["not_matched"])
 
 	def set_status(self, msg, timeout=-1, timeout_msg=None):
 		if self.status_timer is not None:
@@ -334,6 +354,9 @@ class MainWindow(wx.Frame):
 			del self.status_timer
 			self.status_timer = None
 		
+	def on_rclick_item(self, event):  # wxGlade: MainWindow.<event_handler>
+		print("Event handler 'on_rclick_item' not implemented!")
+		event.Skip()
 # end of class MainWindow
 
 class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):
@@ -343,10 +366,10 @@ class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterM
 		wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin.__init__(self)
 		col_names = self.get_column_names()
 		col_widths = self.get_column_widths()
-		for i in range(self.GetColumnCount()):
+		for i in range(len(col_names)):
 			self.InsertColumn(i, col_names[i])
 			self.SetColumnWidth(i, col_widths[i])
-		self.col_sort_mixin = wx.lib.mixins.listctrl.ColumnSorterMixin.__init__(self, self.GetColumnCount())
+		self.col_sort_mixin = wx.lib.mixins.listctrl.ColumnSorterMixin.__init__(self, len(col_names))
 		self.itemIndexMap = {}
 
 	@abc.abstractmethod
@@ -409,6 +432,25 @@ class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterM
 		self.items = items
 		self.SetItemCount(len(items))
 		self.itemIndexMap = [x for x in range(len(items))]
+
+class UnmatchedFilesListCtrl(AbstractFileInfoListCtrl):
+	def get_column_names(self):
+		return ("Old",)
+
+	def get_column_widths(self):
+		return (400,)
+
+	def get_text_val(self, item_idx, col, mapped=True):
+		if mapped:
+			index = self.itemIndexMap[item_idx]
+		else:
+			index = item_idx
+		data = self.items[index]
+		if col == 0:
+			val = data.get_full_fn()
+		else:
+			raise ValueError("Bad column index")
+		return val
 
 class MatchedFilesListCtrl(AbstractFileInfoListCtrl):
 	def get_column_names(self):

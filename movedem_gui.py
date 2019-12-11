@@ -252,7 +252,7 @@ class MainWindow(wx.Frame):
 		for dir_ctl in (self.text_ctrl_old_dir, self.text_ctrl_new_dir):
 			dir = dir_ctl.GetValue().strip()
 			if not os.path.isdir(dir):
-				self.set_status("'%s' is not a valid directory." % (dir), 3000)
+				self.set_status(f"'{dir}' is not a valid directory.", 3000)
 				return False
 		return True
 
@@ -305,7 +305,7 @@ class MainWindow(wx.Frame):
 			status = "Done"
 			if callback_data["wasStopped"]:
 				status = "Stopped"
-			self.set_status("Processed %s files: %s" % (self.file_count, status))
+			self.set_status(f"Processed {self.file_count} files: {status}")
 			self.worker_thread.done = True
 			wx.CallAfter(self.update_results)
 			self.set_button_states()
@@ -462,10 +462,10 @@ class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterM
 
 class UnmatchedFilesListCtrl(AbstractFileInfoListCtrl):
 	def get_column_names(self):
-		return ("Old",)
+		return ("Old", "New Name Matches")
 
 	def get_column_widths(self):
-		return (400,)
+		return (400, 100)
 
 	def get_text_val(self, item_idx, col, mapped=True):
 		if mapped:
@@ -475,6 +475,12 @@ class UnmatchedFilesListCtrl(AbstractFileInfoListCtrl):
 		data = self.items[index]
 		if col == 0:
 			val = data.get_full_fn()
+		elif col == 1:
+			maybe = data.get_maybe_updated()
+			if maybe is None:
+				val = str(0)
+			else:
+				val = str(len(maybe))
 		else:
 			raise ValueError("Bad column index")
 		return val

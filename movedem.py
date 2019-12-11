@@ -119,11 +119,11 @@ class MoveChecker(object):
 				if type(old_files) != list:
 					old_files = (old_files,)
 				for old_file_info in old_files:
-					#if old_fn in mdict_fn_new: #TODO: Always true??
 					new_files = mdict_fn_new[old_fn]
 					if type(new_files) != list:
 						new_files = (new_files,)
 					for new_file_info in new_files:
+						old_file_info.add_maybe_updated(new_file_info)
 						maybe_updated.append((old_file_info, new_file_info))
 		self.logger.info("Found %s matching (includes %s name changes), %s not matching, %s possible updates" % 
 			(str(len(same_files)), str(len(name_changes)), str(len(no_matches)), str(len(maybe_updated))))
@@ -180,6 +180,7 @@ class FileData(object):
 		self.fn = fn
 		stats = os.stat(self.get_full_fn())
 		self.file_size = os.stat_result(stats).st_size
+		self.maybe_updated = None
 
 	def get_size(self):
 		return self.file_size
@@ -209,6 +210,15 @@ class FileData(object):
 		stats = os.stat(self.get_full_fn())
 		return os.stat_result(stats).st_mtime
 	
+	def add_maybe_updated(self, new_file_info):
+		if self.maybe_updated is None:
+			self.maybe_updated = [new_file_info]
+		else:
+			self.maybe_updated.append(new_file_info)
+	
+	def get_maybe_updated(self):
+		return self.maybe_updated
+
 	def __str__(self):
 		s = "%s: dir: %s size: %s hash: %s" % (self.get_fn(), self.get_dir_name(), self.get_size(), self.get_hash())
 		return s

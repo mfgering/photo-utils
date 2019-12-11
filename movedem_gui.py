@@ -358,7 +358,7 @@ class MainWindow(wx.Frame):
 
 	def update_updated_page(self):
 		self.static_text_updated_header.SetLabelText("Possibly Updated Files")
-		self.list_ctrl_updated.set_items(self.compare_results["maybe_updated"])
+		self.list_ctrl_updated.set_items(self.compare_results["not_matched"])
 
 	def set_status(self, msg, timeout=-1, timeout_msg=None):
 		if self.status_timer is not None:
@@ -537,6 +537,16 @@ class UpdatedFilesListCtrl(AbstractFileInfoListCtrl):
 			raise ValueError("Bad column index")
 		return val
 
+	def set_items(self, items):
+		filtered = []
+		for old_file_info in items:
+			maybe_list = old_file_info.get_maybe_updated()
+			if maybe_list is not None:
+				for new_file_info in maybe_list:
+					filtered.append((old_file_info, new_file_info))
+		self.items = filtered
+		self.SetItemCount(len(filtered))
+		self.itemIndexMap = [x for x in range(len(filtered))]
 class MovedEmApp(wx.App):
 	def OnInit(self):
 		self.frame = MainWindow(None, wx.ID_ANY, "")

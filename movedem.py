@@ -109,7 +109,6 @@ class MoveChecker(object):
 				no_matches.append(file_data_old)
 				self.do_callback("file_check", {"is_matched": False, "is_name_changed": False, "file_count": file_count, 
 						"old_file": file_data_old, "new_file": None, "total_files": len(dir_data_old.file_data)})
-		maybe_updated = []
 		for unmatched in no_matches:
 			#Check to see if maybe the contents were updated (names are same)
 			# The old and new file names are equal, the contents are not equal.
@@ -124,11 +123,10 @@ class MoveChecker(object):
 						new_files = (new_files,)
 					for new_file_info in new_files:
 						old_file_info.add_maybe_updated(new_file_info)
-						maybe_updated.append((old_file_info, new_file_info))
-		self.logger.info("Found %s matching (includes %s name changes), %s not matching, %s possible updates" % 
-			(str(len(same_files)), str(len(name_changes)), str(len(no_matches)), str(len(maybe_updated))))
+		self.logger.info("Found %s matching (includes %s name changes), %s not matching" % 
+			(str(len(same_files)), str(len(name_changes)), str(len(no_matches))))
 		self.do_callback("compare_results", {"same": same_files, "name_changes":name_changes, 
-											"not_matched":no_matches, "maybe_updated": maybe_updated})
+											"not_matched":no_matches})
 
 	def multi_dict_save(self, dictionary, key, value):
 		if key in dictionary:
@@ -139,7 +137,6 @@ class MoveChecker(object):
 				curr_val.append(value)
 				value = curr_val
 		dictionary[key] = value
-
 
 class DirData(object):
 	def __init__(self, dir_name, callback=None):

@@ -200,10 +200,9 @@ class MainWindow(wx.Frame):
 		except Exception as exc:
 			self.set_status("Error: "+str(exc))
 			logging.getLogger().exception(exc)
-		print("App starting")
+		print("App starting (version 1.1)")
 
 	def set_button_states(self):
-		#self.set_status("") #TODO: DELETE
 		options_ok = self.options_ok()
 		start = options_ok and \
 				(self.worker_thread is None or \
@@ -280,7 +279,6 @@ class MainWindow(wx.Frame):
 		if dlg.ShowModal() == wx.ID_OK:
 			dir = dlg.GetPath()
 			text_ctrl.SetValue(dir)
-			self.set_status("") #TODO: REMOVE?
 			self.set_button_states()
 		dlg.Destroy()
 

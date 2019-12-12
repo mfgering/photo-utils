@@ -11,7 +11,7 @@ import wx
 
 # begin wxGlade: extracode
 import movedem
-import abc, logging, os, sys, threading, wx, wx.lib.mixins.listctrl
+import abc, logging, os, sys, threading, webbrowser, wx, wx.lib.mixins.listctrl
 import wx.grid as Grid
 # end wxGlade
 
@@ -180,8 +180,6 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_dir_select, self.button_select_new_dir)
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
-		self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self.on_rclick_item, self.list_ctrl_matches)
-		self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self.on_rclick_item, self.list_ctrl_updated)
 		# end wxGlade
 		self.status_timer = None
 		try:
@@ -379,9 +377,6 @@ class MainWindow(wx.Frame):
 			del self.status_timer
 			self.status_timer = None
 		
-	def on_rclick_item(self, event):  # wxGlade: MainWindow.<event_handler>
-		print("Event handler 'on_rclick_item' not implemented!")
-		event.Skip()
 # end of class MainWindow
 
 class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):
@@ -396,6 +391,7 @@ class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterM
 			self.SetColumnWidth(i, col_widths[i])
 		self.col_sort_mixin = wx.lib.mixins.listctrl.ColumnSorterMixin.__init__(self, len(col_names))
 		self.itemIndexMap = {}
+		self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self.on_rclick_list_item)
 
 	@abc.abstractmethod
 	def get_column_names(self):
@@ -458,6 +454,34 @@ class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterM
 		self.SetItemCount(len(items))
 		self.itemIndexMap = [x for x in range(len(items))]
 
+	def on_rclick_list_item(self, event):
+		self.selected_row_index = event.GetIndex()
+		menu = wx.Menu()
+		menu.Bind(wx.EVT_MENU, self.on_menu_item_selected)
+		for (id, title, cb) in self.get_popup_menu_info():
+			menu_item = menu.Append(id, title)
+		self.get_parent_frame().PopupMenu(menu, event.GetPoint())
+		menu.Destroy()
+
+	def get_popup_menu_info(self):
+		return []
+
+	def get_parent_frame(self):
+		ctrl = self
+		while not isinstance(ctrl, wx.Frame):
+			ctrl = ctrl.GetParent()
+			if ctrl is None:
+				return None
+		return ctrl
+
+	def get_selected_row_index(self):
+		return self.selected_row_index
+
+	def on_menu_item_selected(self, event):
+		for (id, title, cb) in self.get_popup_menu_info():
+			if id == event.GetId():
+				return cb(event)
+		raise RuntimeError("Unknown menu id for event")
 class UnmatchedFilesListCtrl(AbstractFileInfoListCtrl):
 	def get_column_names(self):
 		return ("Old", "New Name Matches")
@@ -482,6 +506,13 @@ class UnmatchedFilesListCtrl(AbstractFileInfoListCtrl):
 		else:
 			raise ValueError("Bad column index")
 		return val
+
+	def get_popup_menu_info(self):
+		return [(10, "Open unmatched file", self.on_open_unmatched_file)]
+
+	def on_open_unmatched_file(self, event):
+		item = self.items[self.get_selected_row_index()]
+		webbrowser.open('file://'+item.get_full_fn())
 
 class MatchedFilesListCtrl(AbstractFileInfoListCtrl):
 	def get_column_names(self):
@@ -508,6 +539,23 @@ class MatchedFilesListCtrl(AbstractFileInfoListCtrl):
 		else:
 			raise ValueError("Bad column index")
 		return val
+
+	def get_popup_menu_info(self):
+		return [(1, "Open old file", self.on_open_old_file),
+				(2, "Open new file", self.on_open_new_file), 
+				(3, "Open both files", self.on_open_both_files)]
+
+	def on_open_old_file(self, event):
+		item = self.items[self.get_selected_row_index()]
+		webbrowser.open('file://'+item[0].get_full_fn())
+
+	def on_open_new_file(self, event):
+		item = self.items[self.get_selected_row_index()]
+		webbrowser.open('file://'+item[1].get_full_fn())
+
+	def on_open_both_files(self, event):
+		self.on_open_old_file(event)
+		self.on_open_new_file(event)
 
 class UpdatedFilesListCtrl(AbstractFileInfoListCtrl):
 	def get_column_names(self):
@@ -545,6 +593,24 @@ class UpdatedFilesListCtrl(AbstractFileInfoListCtrl):
 		self.items = filtered
 		self.SetItemCount(len(filtered))
 		self.itemIndexMap = [x for x in range(len(filtered))]
+
+	def get_popup_menu_info(self):
+		return [(1, "Open old file", self.on_open_old_file),
+				(2, "Open new file", self.on_open_new_file), 
+				(3, "Open both files", self.on_open_both_files)]
+
+	def on_open_old_file(self, event):
+		item = self.items[self.get_selected_row_index()]
+		webbrowser.open('file://'+item[0].get_full_fn())
+
+	def on_open_new_file(self, event):
+		item = self.items[self.get_selected_row_index()]
+		webbrowser.open('file://'+item[1].get_full_fn())
+
+	def on_open_both_files(self, event):
+		self.on_open_old_file(event)
+		self.on_open_new_file(event)
+
 class MovedEmApp(wx.App):
 	def OnInit(self):
 		self.frame = MainWindow(None, wx.ID_ANY, "")

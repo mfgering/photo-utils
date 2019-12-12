@@ -198,7 +198,7 @@ class MainWindow(wx.Frame):
 		except Exception as exc:
 			self.set_status("Error: "+str(exc))
 			logging.getLogger().exception(exc)
-		print("App starting (version 1.1)")
+		print("App starting (version 1.2)")
 
 	def set_button_states(self):
 		options_ok = self.options_ok()

@@ -201,7 +201,8 @@ class MainWindow(wx.Frame):
 		# end wxGlade
 		self.status_timer = None
 		global app_version
-		app_version = "1.3"
+		import movedem_gui_version
+		app_version = movedem_gui_version.VERSION
 		try:
 			# redirect text here
 			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
@@ -400,7 +401,7 @@ class MainWindow(wx.Frame):
 	
 	def init_help_page(self):
 		import movedem_gui_help
-		self.help_html.SetPage(app_help.HTML)
+		self.help_html.SetPage(movedem_gui_help.HTML)
 # end of class MainWindow
 
 class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):

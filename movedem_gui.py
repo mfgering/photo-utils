@@ -13,6 +13,7 @@ import wx
 import movedem
 import abc, logging, os, sys, threading, webbrowser, wx, wx.lib.mixins.listctrl
 import wx.grid as Grid
+import wx.html
 # end wxGlade
 
 class MainWindow(wx.Frame):
@@ -149,6 +150,19 @@ class MainWindow(wx.Frame):
 		self.list_ctrl_updated.SetToolTip("Sort by clicking column headers.")
 		sizer_15.Add(self.list_ctrl_updated, 1, wx.EXPAND, 0)
 		
+		self.help_page = wx.Panel(self.notebook_1, wx.ID_ANY)
+		self.notebook_1.AddPage(self.help_page, "Help")
+		
+		sizer_17 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.panel_1 = wx.Panel(self.help_page, wx.ID_ANY)
+		sizer_17.Add(self.panel_1, 1, wx.EXPAND, 0)
+		
+		sizer_18 = wx.BoxSizer(wx.VERTICAL)
+		
+		self.help_html = wx.html.HtmlWindow(self.panel_1, wx.ID_ANY)
+		sizer_18.Add(self.help_html, 1, wx.ALL | wx.EXPAND, 5)
+		
 		self.notebook_1_logs = wx.ScrolledWindow(self.notebook_1, wx.ID_ANY, style=wx.TAB_TRAVERSAL)
 		self.notebook_1_logs.SetScrollRate(10, 10)
 		self.notebook_1.AddPage(self.notebook_1_logs, "Log")
@@ -159,6 +173,10 @@ class MainWindow(wx.Frame):
 		sizer_9.Add(self.log_text_ctrl, 1, wx.ALL | wx.EXPAND, 15)
 		
 		self.notebook_1_logs.SetSizer(sizer_9)
+		
+		self.panel_1.SetSizer(sizer_18)
+		
+		self.help_page.SetSizer(sizer_17)
 		
 		self.updated_page.SetSizer(sizer_14)
 		
@@ -182,11 +200,14 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		# end wxGlade
 		self.status_timer = None
+		global app_version
+		app_version = "1.3"
 		try:
 			# redirect text here
 			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
 			sys.stdout = redir
 			sys.stderr = redir
+			self.init_help_page()
 			self.worker_thread = None
 			self.guiThreadId = threading.current_thread().ident
 			self.args = self.parseArgs()
@@ -198,7 +219,7 @@ class MainWindow(wx.Frame):
 		except Exception as exc:
 			self.set_status("Error: "+str(exc))
 			logging.getLogger().exception(exc)
-		print("App starting (version 1.2)")
+		print(f"App starting (version {app_version})")
 
 	def set_button_states(self):
 		options_ok = self.options_ok()
@@ -376,7 +397,10 @@ class MainWindow(wx.Frame):
 			self.GetStatusBar().SetStatusText(msg)
 			del self.status_timer
 			self.status_timer = None
-		
+	
+	def init_help_page(self):
+		import movedem_gui_help
+		self.help_html.SetPage(app_help.HTML)
 # end of class MainWindow
 
 class AbstractFileInfoListCtrl(wx.ListView, wx.lib.mixins.listctrl.ColumnSorterMixin, wx.lib.mixins.listctrl.ListCtrlAutoWidthMixin):

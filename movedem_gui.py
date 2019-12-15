@@ -201,8 +201,8 @@ class MainWindow(wx.Frame):
 		# end wxGlade
 		self.status_timer = None
 		global app_version
-		import movedem_gui_version
-		app_version = movedem_gui_version.VERSION
+		import version
+		app_version = version.VERSION
 		try:
 			# redirect text here
 			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)

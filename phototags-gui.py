@@ -476,6 +476,9 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_BUTTON, self.on_start_button, self.button_start)
 		self.Bind(wx.EVT_BUTTON, self.on_stop_button, self.button_stop)
 		# end wxGlade
+		global app_version
+		import version
+		app_version = version.VERSION
 		try:
 			# redirect text here
 			redir=RedirectText(self.log_text_ctrl, threading.current_thread().ident)
@@ -495,8 +498,7 @@ class MainWindow(wx.Frame):
 			self.SetClientSize((600, 480))
 		except Exception as exc:
 			self.GetStatusBar().SetStatusText("Error: "+str(exc))
-		print("App starting")
-
+		print(f"App starting (version {app_version})")
 
 	def __set_properties(self):
 		pass

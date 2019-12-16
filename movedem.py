@@ -223,8 +223,6 @@ class FileData(object):
 def main():
 	try:
 		parser = initArgParser()
-		parser.add_argument('--dir-old', required=True, help="Directory with old files")
-		parser.add_argument('--dir-new', required=True, help="Directory with new files")
 		args = parser.parse_args()
 		checker = MoveChecker(dir_old=args.dir_old, dir_new=args.dir_new, args=args)
 		if args.debug:

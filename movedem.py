@@ -10,11 +10,15 @@ File properties:
 """
 import argparse, hashlib, logging, os, sys
 
-def initArgParser():
+def initArgParser(need_dirs=False):
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--max-files', type=int, default=-1, help="Max number of files (-1 for all of them)")
-	parser.add_argument('--dir-old', default="", help="Old directory")
-	parser.add_argument('--dir-new', default="", help="New directory")
+	if need_dirs:
+		parser.add_argument('dir-old', help="Old directory")
+		parser.add_argument('dir-new', help="New directory")
+	else:
+		parser.add_argument('--dir-old', default="", help="Old directory")
+		parser.add_argument('--dir-new', default="", help="New directory")
 	parser.add_argument('--compare', default=True, dest='compare', action='store_true', help="Compare old and new directories")
 	parser.add_argument('--no-compare', dest='compare', action='store_false', help="Do not compare old and new directories")
 	parser.add_argument('--debug', default=False, dest='debug', action='store_true', help="Enable debugging")
@@ -222,8 +226,9 @@ class FileData(object):
 
 def main():
 	try:
-		parser = initArgParser()
+		parser = initArgParser(True)
 		args = parser.parse_args()
+
 		checker = MoveChecker(dir_old=args.dir_old, dir_new=args.dir_new, args=args)
 		if args.debug:
 			checker.logger.setLevel(logging.DEBUG)

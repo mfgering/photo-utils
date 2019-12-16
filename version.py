@@ -1,1 +1,1 @@
-VERSION = 'mfg-2019-12-15'
+VERSION = 'mfg-2019-12-16'

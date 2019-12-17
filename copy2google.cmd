@@ -1,0 +1,1 @@
+copy dist\*.exe "c:\Users\mgering\Google Drive\NC Symphony\photo-utils

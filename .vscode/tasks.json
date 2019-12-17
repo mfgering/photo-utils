@@ -34,9 +34,9 @@
       "problemMatcher": []
     },
     {
-      "label": "build phototags executable",
+      "label": "copy exes to google",
       "type": "shell",
-      "command": "pyinstaller -i app-icon.ico -F phototags.py",
+      "command": "copy2google.cmd",
       "group": {
         "kind": "build",
         "isDefault": true
